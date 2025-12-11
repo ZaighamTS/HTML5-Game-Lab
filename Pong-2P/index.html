@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <title>Pong 2-Player</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, orientation=portrait" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <style>
         body {
             margin: 0;
@@ -117,9 +118,74 @@
                 font-size: 24px;
             }
         }
+
+        .rotate-prompt {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .rotate-prompt.show {
+            display: flex;
+        }
+
+        .rotate-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: rotate 2s infinite;
+        }
+
+        @keyframes rotate {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+
+        .rotate-prompt h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .rotate-prompt p {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        @media (orientation: portrait) {
+            .rotate-prompt {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+            
+            .game-container {
+                width: 100%;
+                max-width: 100vw;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="rotate-prompt" id="rotatePrompt">
+        <div class="rotate-icon">📱</div>
+        <h2>Please Rotate Your Device</h2>
+        <p>This game works best in portrait mode</p>
+    </div>
     <button class="back-btn" onclick="window.location.href = '../index.html'">
         ← Back to Menu
     </button>
@@ -139,6 +205,36 @@
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
+    <script>
+        // Lock screen orientation to portrait
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('portrait').catch(() => {
+                // Lock failed, show rotation prompt
+            });
+        } else if (screen.lockOrientation) {
+            screen.lockOrientation('portrait');
+        } else if (screen.mozLockOrientation) {
+            screen.mozLockOrientation('portrait');
+        } else if (screen.msLockOrientation) {
+            screen.msLockOrientation('portrait');
+        }
+
+        // Show rotation prompt on landscape mobile devices
+        function checkOrientation() {
+            const isLandscape = window.innerWidth > window.innerHeight;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isLandscape && isMobile) {
+                document.getElementById('rotatePrompt').classList.add('show');
+            } else {
+                document.getElementById('rotatePrompt').classList.remove('show');
+            }
+        }
+
+        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation();
+    </script>
     <script src="game.js"></script>
 </body>
 </html>
