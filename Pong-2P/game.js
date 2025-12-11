@@ -129,6 +129,22 @@ p2DownBtn.addEventListener("touchcancel", (e) => {
     downPressed = false;
 });
 
+// === Start Game with Touch/Click ===
+// Canvas click to start game
+canvas.addEventListener("click", (e) => {
+    if (gameState === "menu" || gameState === "gameOver") {
+        startNewGame();
+    }
+});
+
+// Canvas touch to start game
+canvas.addEventListener("touchstart", (e) => {
+    if (gameState === "menu" || gameState === "gameOver") {
+        e.preventDefault();
+        startNewGame();
+    }
+}, { passive: false });
+
 // === Helper Functions ===
 function startNewGame() {
     leftScore = 0;

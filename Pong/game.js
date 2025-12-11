@@ -68,6 +68,13 @@ function moveLeftPaddleToClientY(clientY) {
     }
 }
 
+// Mouse click on canvas to start game
+canvas.addEventListener("click", (e) => {
+    if (gameState === "menu" || gameState === "gameOver") {
+        startNewGame();
+    }
+});
+
 // Mouse move on canvas
 canvas.addEventListener("mousemove", (e) => {
     // Only affect paddle while playing
@@ -77,9 +84,11 @@ canvas.addEventListener("mousemove", (e) => {
 
 // Touch controls on canvas
 canvas.addEventListener("touchstart", (e) => {
-    if (gameState === "menu") {
-        // Tap on screen can also start game (optional)
+    if (gameState === "menu" || gameState === "gameOver") {
+        // Tap on screen to start/restart game
+        e.preventDefault();
         startNewGame();
+        return;
     }
     if (gameState !== "playing") return;
 
