@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Pong 2-Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            margin: 0;
+            background: radial-gradient(circle at top, #1f2933, #020617);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            position: relative;
+            border: 3px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+            background: #000;
+            padding: 4px;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            position: relative;
+            z-index: 1;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: none;
+            font-size: 12px;
+            background: #111827;
+            color: #e5e7eb;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        .back-btn:hover {
+            opacity: 1;
+        }
+
+        .touch-controls {
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            z-index: 1000;
+            pointer-events: auto;
+        }
+
+        .touch-controls.left {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .touch-controls.right {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .touch-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 12px;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .touch-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.7);
+        }
+
+        .touch-btn:active {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0.95);
+            border-color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Show buttons by default - they're useful for touch and mouse */
+        /* Hide only on very large desktop screens if desired */
+        @media (min-width: 1200px) {
+            .touch-controls {
+                opacity: 0.6;
+            }
+        }
+
+        /* Larger buttons on very small screens */
+        @media (max-width: 600px) {
+            .touch-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href = '../index.html'">
+        ← Back to Menu
+    </button>
+
+    <!-- Left side controls (Player 1) -->
+    <div class="touch-controls left">
+        <button class="touch-btn" id="p1Up" aria-label="Player 1 Up">↑</button>
+        <button class="touch-btn" id="p1Down" aria-label="Player 1 Down">↓</button>
+    </div>
+
+    <!-- Right side controls (Player 2) -->
+    <div class="touch-controls right">
+        <button class="touch-btn" id="p2Up" aria-label="Player 2 Up">↑</button>
+        <button class="touch-btn" id="p2Down" aria-label="Player 2 Down">↓</button>
+    </div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

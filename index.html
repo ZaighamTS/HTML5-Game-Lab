@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>HTML5 Mini Games</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>HTML5 Game Lab</h1>
+    <p class="subtitle">Tap a game to play. Works on desktop & mobile.</p>
+
+    <div class="games-grid">
+
+        <!-- Game 1: Pong -->
+        <article class="game-card">
+            <div class="game-thumb">
+                AI PONG
+            </div>
+            <div class="game-info">
+                <h2>Pong Classic</h2>
+                <p>Retro paddle vs AI. Mouse / touch / keyboard supported.</p>
+                <div class="pill">
+                    <span class="dot"></span>
+                    <span>Canvas • Arcade</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="play-btn" onclick="openGame('pong/index.html')">
+                    <span class="icon">▶</span>
+                    <span>Play</span>
+                </button>
+                <span class="tag">1 player • vs CPU</span>
+            </div>
+        </article>
+
+        <!-- Game 2: Pong 2-Player -->
+        <article class="game-card">
+            <div class="game-thumb">
+                PvP PONG
+            </div>
+            <div class="game-info">
+                <h2>Pong Versus</h2>
+                <p>Two players on one keyboard. Classic local multiplayer.</p>
+                <div class="pill">
+                    <span class="dot"></span>
+                    <span>Canvas • 2 Players</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="play-btn" onclick="openGame('pong-2p/index.html')">
+                    <span class="icon">▶</span>
+                    <span>Play</span>
+                </button>
+                <span class="tag">P1: W/S • P2: ↑/↓</span>
+            </div>
+        </article>
+
+        <!-- Game: Breakout -->
+<article class="game-card">
+    <div class="game-thumb">
+        BR!CKOUT
+    </div>
+    <div class="game-info">
+        <h2>Breakout</h2>
+        <p>Destroy all bricks. Arrow keys or mouse to move the paddle.</p>
+        <div class="pill">
+            <span class="dot"></span>
+            <span>Canvas • Input & Collisions</span>
+        </div>
+    </div>
+    <div class="card-footer">
+        <button class="play-btn" onclick="openGame('breakout/index.html')">
+            <span class="icon">▶</span>
+            <span>Play</span>
+        </button>
+        <span class="tag">Arrows / Mouse</span>
+    </div>
+</article>
+
+<!-- Game: Flappy Clone -->
+<article class="game-card">
+    <div class="game-thumb">
+        FLAPPY
+    </div>
+    <div class="game-info">
+        <h2>Sky Flap</h2>
+        <p>Tap / click / space to fly through endless pipes.</p>
+        <div class="pill">
+            <span class="dot"></span>
+            <span>Canvas • Physics & Spawning</span>
+        </div>
+    </div>
+    <div class="card-footer">
+        <button class="play-btn" onclick="openGame('flappy/index.html')">
+            <span class="icon">▶</span>
+            <span>Play</span>
+        </button>
+        <span class="tag">Mobile friendly</span>
+    </div>
+</article>
+
+        <!-- Placeholder for next games -->
+        <article class="game-card">
+            <div class="game-thumb coming">
+                COMING SOON
+            </div>
+            <div class="game-info">
+                <h2>More games (Coming)</h2>
+                <p>Be sure to come back and check for more games in the future.</p>
+
+            </div>
+            <div class="card-footer">
+                <button class="play-btn disabled" disabled>
+                    <span class="icon">⏳</span>
+                    <span>Soon</span>
+                </button>
+            </div>
+        </article>
+
+    </div>
+
+    <footer>
+        Built with HTML5 Canvas & JavaScript • More games coming soon.
+    </footer>
+
+    <script>
+        function openGame(path) {
+            window.location.href = path;
+        }
+    </script>
+
+</body>
+</html>
