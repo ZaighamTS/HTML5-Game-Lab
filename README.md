@@ -47,4 +47,3 @@ This project is open source and available for educational purposes.
 
 - [GitHub Repository](https://github.com/ZaighamTS/HTML5-Game-Lab)
 - [Live Demo](https://zaighamts.github.io/HTML5-Game-Lab/)
-
