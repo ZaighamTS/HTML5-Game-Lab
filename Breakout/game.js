@@ -1225,13 +1225,26 @@ function drawAnimatedButton(ctx, x, y, width, height, text, color, isSelected, i
     ctx.fillText(text, x + width / 2, y + offsetY + 28);
 }
 
-// ====== LOOP ======
-function gameLoop() {
-    animationTime += 0.016; // Approximate frame time
-    update();
+// ====== LOOP (Throttled to 60 FPS) ======
+let lastUpdateTime = 0;
+const targetFPS = 60;
+const frameInterval = 1000 / targetFPS; // ~16.67ms per frame at 60 FPS
+
+function gameLoop(timestamp) {
+    // Always render for smooth visuals
     draw();
+    
+    // Only update game logic at 60 FPS
+    const elapsed = timestamp - lastUpdateTime;
+    if (elapsed >= frameInterval) {
+        const deltaTime = elapsed / 1000; // Convert to seconds for animationTime
+        animationTime += deltaTime;
+        update();
+        lastUpdateTime = timestamp - (elapsed % frameInterval); // Account for frame time drift
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
 // Initialize
-gameLoop();
+requestAnimationFrame(gameLoop);

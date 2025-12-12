@@ -325,12 +325,24 @@ function draw() {
     }
 }
 
-// === Main Loop ===
-function gameLoop() {
-    update();
+// === Main Loop (Throttled to 60 FPS) ===
+let lastUpdateTime = 0;
+const targetFPS = 60;
+const frameInterval = 1000 / targetFPS; // ~16.67ms per frame at 60 FPS
+
+function gameLoop(timestamp) {
+    // Always render for smooth visuals
     draw();
+    
+    // Only update game logic at 60 FPS
+    const elapsed = timestamp - lastUpdateTime;
+    if (elapsed >= frameInterval) {
+        update();
+        lastUpdateTime = timestamp - (elapsed % frameInterval); // Account for frame time drift
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
 resetBall(0);
-gameLoop();
+requestAnimationFrame(gameLoop);
