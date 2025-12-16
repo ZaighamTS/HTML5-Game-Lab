@@ -113,10 +113,37 @@ document.addEventListener("keyup", (e) => {
 });
 
 // ====== INPUT: MOUSE ======
-canvas.addEventListener("mousemove", (e) => {
+// Helper function to convert screen coordinates to canvas coordinates
+function getCanvasCoordinates(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+    };
+}
+
+// Helper function to check if point is within button (accounts for scaling)
+function isPointInButton(px, py, btnX, btnY, btnWidth, btnHeight) {
+    // Account for maximum possible scale (1.05 * 1.02 ≈ 1.07) and add small padding
+    // Buttons scale from left edge, with small Y offset (max -2px)
+    const maxScale = 1.1;
+    const maxOffsetY = 2; // Maximum offsetY is -2, so we check a bit above
+    const scaledWidth = btnWidth * maxScale;
+    
+    // Check if point is within scaled button bounds
+    // Account for offsetY by checking a slightly larger Y range
+    return px >= btnX && 
+           px < btnX + scaledWidth &&
+           py >= btnY - maxOffsetY && 
+           py < btnY + btnHeight;
+}
+
+canvas.addEventListener("mousemove", (e) => {
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    mouseX = coords.x;
+    mouseY = coords.y;
     
     if (gameState === "playing" && !paused) {
         paddleX = mouseX - currentPaddleWidth / 2;
@@ -124,10 +151,24 @@ canvas.addEventListener("mousemove", (e) => {
     }
 });
 
+// Touch support for paddle movement
+canvas.addEventListener("touchmove", (e) => {
+    if (gameState === "playing" && !paused && e.touches.length > 0) {
+        e.preventDefault(); // Prevent scrolling
+        const touch = e.touches[0];
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        mouseX = coords.x;
+        mouseY = coords.y;
+        
+        paddleX = mouseX - currentPaddleWidth / 2;
+        clampPaddle();
+    }
+}, { passive: false });
+
 canvas.addEventListener("click", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    const mouseX = coords.x;
+    const mouseY = coords.y;
     
     if (gameState === "levelSelect") {
         const centerY = canvas.height / 2;
@@ -187,6 +228,84 @@ canvas.addEventListener("click", (e) => {
         }
     }
 });
+
+// Touch support for buttons and paddle
+canvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 0) return;
+    
+    const touch = e.touches[0];
+    const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+    const mouseX = coords.x;
+    const mouseY = coords.y;
+    
+    // Handle paddle movement if touching during gameplay
+    if (gameState === "playing" && !paused) {
+        e.preventDefault();
+        paddleX = mouseX - currentPaddleWidth / 2;
+        clampPaddle();
+        return; // Don't process button clicks if in gameplay
+    }
+    
+    // Handle button clicks
+    e.preventDefault();
+    if (gameState === "levelSelect") {
+        const centerY = canvas.height / 2;
+        const buttonWidth = 300;
+        const buttonHeight = 50;
+        const buttonSpacing = 20;
+        const startX = canvas.width / 2 - buttonWidth / 2;
+        
+        // Level 1 button
+        if (mouseX >= startX && mouseX < startX + buttonWidth &&
+            mouseY >= centerY - 60 && mouseY < centerY - 60 + buttonHeight) {
+            selectedLevel = 1;
+            startNewGame();
+        }
+        // Level 2 button
+        else if (mouseX >= startX && mouseX < startX + buttonWidth &&
+                 mouseY >= centerY + buttonSpacing && mouseY < centerY + buttonSpacing + buttonHeight) {
+            selectedLevel = 2;
+            startNewGame();
+        }
+        // Level 3 button
+        else if (mouseX >= startX && mouseX < startX + buttonWidth &&
+                 mouseY >= centerY + (buttonHeight + buttonSpacing) * 2 && mouseY < centerY + (buttonHeight + buttonSpacing) * 2 + buttonHeight) {
+            selectedLevel = 3;
+            startNewGame();
+        }
+    } else if (gameState === "gameOver" || gameState === "win") {
+        // Button areas for level selection (must match draw function positions)
+        const buttonY = canvas.height / 2 + 20;
+        const buttonWidth = 200;
+        const buttonHeight = 40;
+        const buttonSpacing = 50;
+        const startX = canvas.width / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        
+        // Level 1 button
+        if (mouseX >= startX && mouseX < startX + buttonWidth &&
+            mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
+            selectedLevel = 1;
+            startNewGame();
+        }
+        // Level 2 button
+        else if (mouseX >= startX + buttonWidth + buttonSpacing && mouseX < startX + buttonWidth * 2 + buttonSpacing &&
+                 mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
+            selectedLevel = 2;
+            startNewGame();
+        }
+        // Level 3 button
+        else if (mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
+                 mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
+            selectedLevel = 3;
+            startNewGame();
+        }
+        // Return to menu button
+        else if (mouseX >= canvas.width / 2 - 100 && mouseX < canvas.width / 2 + 100 &&
+                 mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20) {
+            gameState = "levelSelect";
+        }
+    }
+}, { passive: false });
 
 // ====== BRICK CREATION FUNCTIONS ======
 function createBricks() {
@@ -373,17 +492,42 @@ function activatePowerUp(type) {
             currentPaddleWidth = PADDLE_WIDTH;
         }, 10000); // 10 seconds
     } else if (type === POWERUP_TYPES.MULTI_BALL) {
-        // Create 2 additional balls
-        for (let i = 0; i < 2; i++) {
-            const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
-            balls.push({
-                x: ballX,
-                y: ballY,
-                prevX: ballX,
-                prevY: ballY,
-                velX: currentBallSpeed * Math.sin(angle),
-                velY: -currentBallSpeed * Math.cos(angle)
-            });
+        // Multiply all existing balls (main ball + multi-balls)
+        // Create 2 new balls for each existing ball
+        
+        // Copy existing multi-balls BEFORE adding new ones to avoid multiplying the new ones
+        const existingMultiBalls = [...balls];
+        
+        // First, create 2 new balls from the main ball (if it's not lost)
+        if (!isMainBallLost()) {
+            for (let i = 0; i < 2; i++) {
+                const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
+                balls.push({
+                    x: ballX,
+                    y: ballY,
+                    prevX: ballX,
+                    prevY: ballY,
+                    velX: currentBallSpeed * Math.sin(angle),
+                    velY: -currentBallSpeed * Math.cos(angle)
+                });
+            }
+        }
+        
+        // Then, create 2 new balls for each existing multi-ball
+        for (const existingBall of existingMultiBalls) {
+            for (let i = 0; i < 2; i++) {
+                const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
+                const speed = Math.sqrt(existingBall.velX * existingBall.velX + existingBall.velY * existingBall.velY);
+                // Use negative cosine for upward direction (matching main ball creation)
+                balls.push({
+                    x: existingBall.x,
+                    y: existingBall.y,
+                    prevX: existingBall.x,
+                    prevY: existingBall.y,
+                    velX: speed * Math.sin(angle),
+                    velY: -speed * Math.cos(angle)
+                });
+            }
         }
     } else if (type === POWERUP_TYPES.SLOW_BALL) {
         // Slow down all balls temporarily
@@ -442,6 +586,8 @@ function updateMultiBalls() {
         // Bottom - remove ball
         if (ball.y - BALL_RADIUS > canvas.height) {
             balls.splice(i, 1);
+            // Check if all balls are now gone
+            checkAllBallsLost();
             continue;
         }
 
@@ -479,7 +625,11 @@ function updateMultiBalls() {
                     breakSound.play();
 
                     // Apply collision response
-                    if (collision.side === "top" || collision.side === "bottom") {
+                    // Special handling for flipped triangles' flat top
+                    if (brick.type === "triangle" && !brick.upright && collision.side === "top" && ball.velY > 0) {
+                        // Flipped triangle's flat top hit from above - bounce downward (keep velY positive)
+                        ball.velY = Math.abs(ball.velY); // Ensure positive (downward)
+                    } else if (collision.side === "top" || collision.side === "bottom") {
                         ball.velY = -ball.velY;
                     } else if (collision.side === "left" || collision.side === "right") {
                         ball.velX = -ball.velX;
@@ -498,6 +648,36 @@ function drawMultiBalls() {
         ctx.fillStyle = "#38bdf8";
         ctx.fill();
     }
+}
+
+// ====== HELPER FUNCTIONS ======
+// Check if main ball is off-screen (lost)
+function isMainBallLost() {
+    return ballY - BALL_RADIUS > canvas.height;
+}
+
+// Check if all balls are gone and handle life loss
+function checkAllBallsLost() {
+    const mainBallLost = isMainBallLost();
+    const noMultiBalls = balls.length === 0;
+    
+    if (mainBallLost && noMultiBalls) {
+        lives--;
+        loseSound.currentTime = 0;
+        loseSound.play();
+        if (lives <= 0) {
+            // Update high score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem("breakoutHighScore", highScore.toString());
+            }
+            gameState = "gameOver";
+        } else {
+            resetBall();
+        }
+        return true;
+    }
+    return false;
 }
 
 // ====== GAME CONTROL ======
@@ -728,28 +908,48 @@ function detectTriangleCollision(cx, cy, radius, brick, prevX, prevY, velX, velY
     let x1, y1, x2, y2, x3, y3;
     
     if (brick.upright) {
-        x1 = brick.x + brick.size / 2;
+        // Upright triangle: point at top, flat base at bottom
+        x1 = brick.x + brick.size / 2;  // Point at top
         y1 = brick.y;
-        x2 = brick.x;
+        x2 = brick.x;                   // Left bottom
         y2 = brick.y + height;
-        x3 = brick.x + brick.size;
+        x3 = brick.x + brick.size;      // Right bottom
         y3 = brick.y + height;
     } else {
-        x1 = brick.x;
+        // Flipped triangle: point at bottom, flat top
+        x1 = brick.x;                   // Left top
         y1 = brick.y;
-        x2 = brick.x + brick.size / 2;
+        x2 = brick.x + brick.size / 2;  // Point at bottom
         y2 = brick.y + height;
-        x3 = brick.x + brick.size;
+        x3 = brick.x + brick.size;      // Right top
         y3 = brick.y;
     }
     
-    // Determine which edge was hit based on velocity and position
-    const edges = [
-        { x1, y1, x2, y2, side: brick.upright ? "top" : "left" },
-        { x1: x2, y1: y2, x2: x3, y2: y3, side: brick.upright ? "right" : "bottom" },
-        { x1: x3, y1: y3, x2, y2: y1, side: brick.upright ? "left" : "right" }
-    ];
+    // Define edges - match the drawing order
+    let edges;
+    if (brick.upright) {
+        // Upright triangle edges (as drawn):
+        // 1. Point to left bottom (diagonal)
+        // 2. Left bottom to right bottom (flat bottom)
+        // 3. Right bottom to point (diagonal)
+        edges = [
+            { x1, y1, x2, y2, isFlat: false, flatSide: null },           // Diagonal left
+            { x1: x2, y1: y2, x2: x3, y2: y3, isFlat: true, flatSide: "bottom" },  // Flat bottom
+            { x1: x3, y1: y3, x2, y2: y1, isFlat: false, flatSide: null }         // Diagonal right
+        ];
+    } else {
+        // Flipped triangle edges (as drawn):
+        // 1. Left top to point (diagonal)
+        // 2. Point to right top (diagonal)
+        // 3. Right top to left top (flat top)
+        edges = [
+            { x1, y1, x2, y2, isFlat: false, flatSide: null },           // Diagonal left
+            { x1: x2, y1: y2, x2: x3, y2: y3, isFlat: false, flatSide: null },    // Diagonal right
+            { x1: x3, y1: y3, x2, y2: y1, isFlat: true, flatSide: "top" }         // Flat top
+        ];
+    }
     
+    // Find closest edge
     let closestEdge = null;
     let minDist = Infinity;
     
@@ -761,18 +961,36 @@ function detectTriangleCollision(cx, cy, radius, brick, prevX, prevY, velX, velY
         }
     }
     
-    // Determine bounce direction
+    // Determine collision side based on edge type and ball movement
     let side = "top";
     if (closestEdge) {
-        const edgeAngle = Math.atan2(closestEdge.y2 - closestEdge.y1, closestEdge.x2 - closestEdge.x1);
-        const ballAngle = Math.atan2(velY, velX);
-        const diff = Math.abs(edgeAngle - ballAngle);
-        
-        if (diff < Math.PI / 3 || diff > 2 * Math.PI / 3) {
-            // Hit edge perpendicularly
-            side = Math.abs(velY) > Math.abs(velX) ? "top" : "left";
+        if (closestEdge.isFlat) {
+            // Flat edge - use the flatSide directly
+            // Special handling for flipped triangles is done in collision response
+            side = closestEdge.flatSide;
         } else {
-            side = closestEdge.side;
+            // Diagonal edge - determine based on velocity and edge angle
+            const edgeAngle = Math.atan2(closestEdge.y2 - closestEdge.y1, closestEdge.x2 - closestEdge.x1);
+            const ballAngle = Math.atan2(velY, velX);
+            
+            // Calculate normal to the edge (perpendicular, pointing outward)
+            const edgeLength = Math.sqrt(
+                Math.pow(closestEdge.x2 - closestEdge.x1, 2) + 
+                Math.pow(closestEdge.y2 - closestEdge.y1, 2)
+            );
+            const nx = -(closestEdge.y2 - closestEdge.y1) / edgeLength;
+            const ny = (closestEdge.x2 - closestEdge.x1) / edgeLength;
+            
+            // Determine which side based on normal and velocity
+            const dotProduct = velX * nx + velY * ny;
+            
+            if (Math.abs(nx) > Math.abs(ny)) {
+                // More horizontal edge
+                side = nx > 0 ? "right" : "left";
+            } else {
+                // More vertical edge
+                side = ny > 0 ? "bottom" : "top";
+            }
         }
     }
     
@@ -823,92 +1041,103 @@ function update() {
     // Update multi-balls
     updateMultiBalls();
 
-    // Store previous position for collision detection
-    prevBallX = ballX;
-    prevBallY = ballY;
-
-    // Move main ball
-    ballX += ballVelX;
-    ballY += ballVelY;
-
-    // Wall collisions (left/right)
-    if (ballX - BALL_RADIUS < 0 && ballVelX < 0) {
-        ballX = BALL_RADIUS;
-        ballVelX = -ballVelX;
-    }
-    if (ballX + BALL_RADIUS > canvas.width && ballVelX > 0) {
-        ballX = canvas.width - BALL_RADIUS;
-        ballVelX = -ballVelX;
-    }
-
-    // Top wall
-    if (ballY - BALL_RADIUS < 0 && ballVelY < 0) {
-        ballY = BALL_RADIUS;
-        ballVelY = -ballVelY;
-    }
-
-    // Bottom (lose life)
-    if (ballY - BALL_RADIUS > canvas.height) {
-        lives--;
-        loseSound.currentTime = 0;
-        loseSound.play();
-        if (lives <= 0) {
-            // Update high score
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem("breakoutHighScore", highScore.toString());
-            }
-            gameState = "gameOver";
-        } else {
-            resetBall();
-        }
-    }
-
-    // Paddle collision
-    if (
-        circleRectCollide(ballX, ballY, BALL_RADIUS, paddleX, paddleY, currentPaddleWidth, PADDLE_HEIGHT) &&
-        ballVelY > 0
-    ) {
-        ballY = paddleY - BALL_RADIUS;
-
-        const hitPos = (ballX - (paddleX + currentPaddleWidth / 2)) / (currentPaddleWidth / 2);
-        const maxBounceAngle = (75 * Math.PI) / 180;
-        const bounceAngle = hitPos * maxBounceAngle;
-
-        const speed = Math.sqrt(ballVelX * ballVelX + ballVelY * ballVelY);
-        ballVelX = speed * Math.sin(bounceAngle);
-        ballVelY = -speed * Math.cos(bounceAngle);
-        
-        paddleSound.currentTime = 0;
-        paddleSound.play();
-    }
-
-    // Brick collisions (main ball)
+    // Count bricks remaining (needed for level complete check)
     let bricksRemaining = 0;
     for (let row = 0; row < bricks.length; row++) {
         for (let col = 0; col < bricks[row]?.length; col++) {
             const brick = bricks[row]?.[col];
-            if (!brick || !brick.alive) continue;
-            bricksRemaining++;
+            if (brick && brick.alive) {
+                bricksRemaining++;
+            }
+        }
+    }
 
-            const collision = detectBrickCollision(ballX, ballY, BALL_RADIUS, brick, prevBallX, prevBallY, ballVelX, ballVelY);
-            if (collision.hit) {
-                brick.alive = false;
-                score += 10;
-                bricksRemaining--;
-                bricksDestroyed++;
-                createParticles(brick.x, brick.y, brick.color);
-                createPowerUp(brick.x, brick.y);
-                breakSound.currentTime = 0;
-                breakSound.play();
+    // Only update main ball if it's not lost (off-screen)
+    if (!isMainBallLost()) {
+        // Store previous position for collision detection
+        prevBallX = ballX;
+        prevBallY = ballY;
 
-                // Apply collision response based on side
-                if (collision.side === "top" || collision.side === "bottom") {
-                    ballVelY = -ballVelY;
-                } else if (collision.side === "left" || collision.side === "right") {
-                    ballVelX = -ballVelX;
+        // Move main ball
+        ballX += ballVelX;
+        ballY += ballVelY;
+
+        // Wall collisions (left/right)
+        if (ballX - BALL_RADIUS < 0 && ballVelX < 0) {
+            ballX = BALL_RADIUS;
+            ballVelX = -ballVelX;
+        }
+        if (ballX + BALL_RADIUS > canvas.width && ballVelX > 0) {
+            ballX = canvas.width - BALL_RADIUS;
+            ballVelX = -ballVelX;
+        }
+
+        // Top wall
+        if (ballY - BALL_RADIUS < 0 && ballVelY < 0) {
+            ballY = BALL_RADIUS;
+            ballVelY = -ballVelY;
+        }
+
+        // Bottom - check if main ball is lost
+        if (ballY - BALL_RADIUS > canvas.height) {
+            // Main ball is lost - check if all balls are gone
+            if (!checkAllBallsLost()) {
+                // Main ball is lost but multi-balls remain - keep it off-screen
+                ballX = canvas.width / 2;
+                ballY = canvas.height + 100; // Keep it off-screen
+                ballVelX = 0;
+                ballVelY = 0;
+            }
+        }
+
+        // Paddle collision
+        if (
+            circleRectCollide(ballX, ballY, BALL_RADIUS, paddleX, paddleY, currentPaddleWidth, PADDLE_HEIGHT) &&
+            ballVelY > 0
+        ) {
+            ballY = paddleY - BALL_RADIUS;
+
+            const hitPos = (ballX - (paddleX + currentPaddleWidth / 2)) / (currentPaddleWidth / 2);
+            const maxBounceAngle = (75 * Math.PI) / 180;
+            const bounceAngle = hitPos * maxBounceAngle;
+
+            const speed = Math.sqrt(ballVelX * ballVelX + ballVelY * ballVelY);
+            ballVelX = speed * Math.sin(bounceAngle);
+            ballVelY = -speed * Math.cos(bounceAngle);
+            
+            paddleSound.currentTime = 0;
+            paddleSound.play();
+        }
+
+        // Brick collisions (main ball)
+        for (let row = 0; row < bricks.length; row++) {
+            for (let col = 0; col < bricks[row]?.length; col++) {
+                const brick = bricks[row]?.[col];
+                if (!brick || !brick.alive) continue;
+
+                const collision = detectBrickCollision(ballX, ballY, BALL_RADIUS, brick, prevBallX, prevBallY, ballVelX, ballVelY);
+                if (collision.hit) {
+                    brick.alive = false;
+                    score += 10;
+                    bricksRemaining--;
+                    bricksDestroyed++;
+                    createParticles(brick.x, brick.y, brick.color);
+                    createPowerUp(brick.x, brick.y);
+                    breakSound.currentTime = 0;
+                    breakSound.play();
+
+                    // Apply collision response based on side
+                    // Special handling for flipped triangles' flat top
+                    if (brick.type === "triangle" && !brick.upright && collision.side === "top" && ballVelY > 0) {
+                        // Flipped triangle's flat top hit from above - bounce downward (keep velY positive)
+                        ballVelY = Math.abs(ballVelY); // Ensure positive (downward)
+                    } else if (collision.side === "top" || collision.side === "bottom") {
+                        ballVelY = -ballVelY;
+                    } else if (collision.side === "left" || collision.side === "right") {
+                        ballVelX = -ballVelX;
+                    }
+                    break; // Only one brick per frame
                 }
-                break; // Only one brick per frame
             }
         }
     }
@@ -1160,7 +1389,7 @@ function draw() {
         drawAnimatedButton(ctx, startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight, "Level 3", "#eab308", false, level3Hovered, animationTime);
         
         // Return to menu button
-        drawAnimatedButton(ctx, canvas.width / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#666", false, menuHovered, animationTime);
+        drawAnimatedButton(ctx, canvas.width / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#22c55e", false, menuHovered, animationTime);
         
         ctx.fillStyle = "#888";
         ctx.font = "16px Arial";
