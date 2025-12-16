@@ -13,12 +13,22 @@ const PIPE_SPAWN_INTERVAL = 1.3; // seconds between pipes
 
 const FLOOR_HEIGHT = 90;
 
+// ====== PARALLAX SETTINGS ======
+const PARALLAX_SPEED_CLOUDS = 30;      // slowest layer (furthest back)
+const PARALLAX_SPEED_FAR_MOUNTAINS = 50; // middle layer
+const PARALLAX_SPEED_NEAR_MOUNTAINS = 80; // faster layer (closer)
+const CLOUD_SPACING = 200;
+const MOUNTAIN_SPACING = 250;
+
 // ====== GAME STATE ======
 let birdX = canvas.width * 0.25;
 let birdY = canvas.height / 2;
 let birdVelY = 0;
 
 let pipes = []; // { x, gapY, passed }
+let clouds = []; // { x, y, size, type }
+let farMountains = []; // { x, baseY, height }
+let nearMountains = []; // { x, baseY, height }
 let score = 0;
 let bestScore = parseInt(localStorage.getItem("flappyBestScore") || "0", 10);
 
@@ -29,6 +39,7 @@ let wingTime = 0;   // used for wing flapping animation
 // timing
 let lastTime = 0;
 let spawnTimer = 0;
+let parallaxOffset = 0; // global parallax scroll offset
 
 // input flags
 let flapQueued = false;
@@ -74,6 +85,62 @@ function resetGame() {
     pipes = [];
     score = 0;
     spawnTimer = 0;
+    parallaxOffset = 0;
+    initializeParallaxLayers();
+}
+
+// ====== PARALLAX LAYER INITIALIZATION ======
+function initializeParallaxLayers() {
+    const floorY = canvas.height - FLOOR_HEIGHT;
+    
+    // Initialize clouds
+    clouds = [];
+    for (let x = 0; x < canvas.width + CLOUD_SPACING * 3; x += CLOUD_SPACING) {
+        clouds.push({
+            x: x + Math.random() * 100,
+            y: 50 + Math.random() * 200,
+            size: 30 + Math.random() * 40,
+            type: Math.floor(Math.random() * 3) // 0, 1, or 2 for variety
+        });
+    }
+    
+    // Initialize far mountains (taller, extending to ground)
+    farMountains = [];
+    for (let x = -100; x < canvas.width + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
+        const height = 180 + Math.random() * 120; // Increased height
+        const baseY = floorY; // Mountains touch the ground
+        farMountains.push({
+            x: x,
+            baseY: baseY,
+            height: height,
+            peaks: generateMountainPeaks(2 + Math.floor(Math.random() * 2), 80 + Math.random() * 60, height)
+        });
+    }
+    
+    // Initialize near mountains (taller, extending to ground)
+    nearMountains = [];
+    for (let x = -100; x < canvas.width + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
+        const height = 220 + Math.random() * 150; // Increased height
+        const baseY = floorY; // Mountains touch the ground
+        nearMountains.push({
+            x: x,
+            baseY: baseY,
+            height: height,
+            peaks: generateMountainPeaks(1 + Math.floor(Math.random() * 3), 60 + Math.random() * 80, height, true)
+        });
+    }
+}
+
+// Helper function to generate mountain peak data
+function generateMountainPeaks(numPeaks, peakWidth, mountainHeight, isVaried = false) {
+    const peaks = [];
+    for (let i = 0; i <= numPeaks; i++) {
+        peaks.push({
+            x: peakWidth * i + (isVaried ? (Math.random() - 0.5) * 20 : 0),
+            height: mountainHeight * (isVaried ? 0.6 + Math.random() * 0.4 : 0.7 + Math.random() * 0.3)
+        });
+    }
+    return { peaks: peaks, peakWidth: peakWidth };
 }
 
 function gameOver() {
@@ -133,6 +200,71 @@ function update(deltaTime) {
 
     // Remove off-screen pipes
     pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > -100);
+    
+    // Update parallax layers
+    if (gameState === "playing") {
+        parallaxOffset += PIPE_SPEED * deltaTime;
+        
+        // Update clouds (slowest)
+        const cloudMove = PARALLAX_SPEED_CLOUDS * deltaTime;
+        clouds.forEach(cloud => {
+            cloud.x -= cloudMove;
+        });
+        // Remove off-screen clouds and add new ones
+        clouds = clouds.filter(cloud => cloud.x > -200);
+        // Find rightmost cloud position
+        let maxCloudX = clouds.length > 0 ? Math.max(...clouds.map(c => c.x)) : canvas.width - 100;
+        // Add new clouds as needed
+        while (maxCloudX < canvas.width + 300) {
+            const newCloud = {
+                x: maxCloudX + CLOUD_SPACING + Math.random() * 100,
+                y: 50 + Math.random() * 200,
+                size: 30 + Math.random() * 40,
+                type: Math.floor(Math.random() * 3)
+            };
+            clouds.push(newCloud);
+            maxCloudX = newCloud.x;
+        }
+        
+        // Update far mountains
+        const farMountainMove = PARALLAX_SPEED_FAR_MOUNTAINS * deltaTime;
+        farMountains.forEach(mountain => {
+            mountain.x -= farMountainMove;
+        });
+        farMountains = farMountains.filter(m => m.x > -MOUNTAIN_SPACING);
+        let maxFarMountainX = farMountains.length > 0 ? Math.max(...farMountains.map(m => m.x)) : canvas.width - 100;
+        const floorY = canvas.height - FLOOR_HEIGHT;
+        while (maxFarMountainX < canvas.width + MOUNTAIN_SPACING * 2) {
+            const height = 180 + Math.random() * 120; // Increased height
+            const newMountain = {
+                x: maxFarMountainX + MOUNTAIN_SPACING,
+                baseY: floorY, // Mountains touch the ground
+                height: height,
+                peaks: generateMountainPeaks(2 + Math.floor(Math.random() * 2), 80 + Math.random() * 60, height)
+            };
+            farMountains.push(newMountain);
+            maxFarMountainX = newMountain.x;
+        }
+        
+        // Update near mountains
+        const nearMountainMove = PARALLAX_SPEED_NEAR_MOUNTAINS * deltaTime;
+        nearMountains.forEach(mountain => {
+            mountain.x -= nearMountainMove;
+        });
+        nearMountains = nearMountains.filter(m => m.x > -MOUNTAIN_SPACING);
+        let maxNearMountainX = nearMountains.length > 0 ? Math.max(...nearMountains.map(m => m.x)) : canvas.width - 100;
+        while (maxNearMountainX < canvas.width + MOUNTAIN_SPACING * 2) {
+            const height = 220 + Math.random() * 150; // Increased height
+            const newMountain = {
+                x: maxNearMountainX + MOUNTAIN_SPACING,
+                baseY: floorY, // Mountains touch the ground
+                height: height,
+                peaks: generateMountainPeaks(1 + Math.floor(Math.random() * 3), 60 + Math.random() * 80, height, true)
+            };
+            nearMountains.push(newMountain);
+            maxNearMountainX = newMountain.x;
+        }
+    }
 
     // Spawn new pipes
     spawnTimer += deltaTime;
@@ -173,8 +305,126 @@ function update(deltaTime) {
 }
 
 // ====== DRAW ======
-function drawBackground() {
-    // simple sky gradient already via CSS; add ground
+function drawSkyGradient() {
+    // Sky gradient from light blue to dark
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height - FLOOR_HEIGHT);
+    gradient.addColorStop(0, "#87ceeb");  // Light sky blue
+    gradient.addColorStop(0.5, "#4682b4"); // Steel blue
+    gradient.addColorStop(1, "#2c3e50");   // Dark blue-gray
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height - FLOOR_HEIGHT);
+}
+
+function drawClouds() {
+    clouds.forEach(cloud => {
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        
+        const size = cloud.size;
+        const x = cloud.x;
+        const y = cloud.y;
+        
+        // Draw cloud shape (multiple circles)
+        if (cloud.type === 0) {
+            // Simple cloud
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.6, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.5, y, size * 0.7, 0, Math.PI * 2);
+            ctx.arc(x + size, y, size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (cloud.type === 1) {
+            // Medium cloud
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.4, y - size * 0.2, size * 0.6, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.8, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.6, y + size * 0.2, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Large cloud
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.5, y - size * 0.15, size * 0.7, 0, Math.PI * 2);
+            ctx.arc(x + size, y, size * 0.6, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.25, y + size * 0.15, size * 0.45, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.75, y + size * 0.15, size * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    });
+}
+
+function drawFarMountains() {
+    farMountains.forEach(mountain => {
+        const x = mountain.x;
+        const topY = mountain.baseY - mountain.height;
+        
+        // Create gradient for far mountains (lighter, more faded)
+        const gradient = ctx.createLinearGradient(x, topY, x, mountain.baseY);
+        gradient.addColorStop(0, "#4a5568");  // Lighter gray
+        gradient.addColorStop(1, "#2d3748");  // Darker gray
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(x, mountain.baseY);
+        
+        // Draw mountain peaks using stored peak data
+        const peakData = mountain.peaks || generateMountainPeaks(2, 80, mountain.height);
+        peakData.peaks.forEach(peak => {
+            ctx.lineTo(x + peak.x, mountain.baseY - peak.height);
+        });
+        
+        ctx.lineTo(x + peakData.peakWidth * (peakData.peaks.length), mountain.baseY);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add subtle outline
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    });
+}
+
+function drawNearMountains() {
+    nearMountains.forEach(mountain => {
+        const x = mountain.x;
+        const topY = mountain.baseY - mountain.height;
+        
+        // Create gradient for near mountains (darker, more prominent)
+        const gradient = ctx.createLinearGradient(x, topY, x, mountain.baseY);
+        gradient.addColorStop(0, "#374151");  // Medium gray
+        gradient.addColorStop(0.5, "#1f2937"); // Dark gray
+        gradient.addColorStop(1, "#111827");   // Very dark gray
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(x, mountain.baseY);
+        
+        // Draw mountain peaks using stored peak data
+        const peakData = mountain.peaks || generateMountainPeaks(2, 70, mountain.height, true);
+        peakData.peaks.forEach(peak => {
+            ctx.lineTo(x + peak.x, mountain.baseY - peak.height);
+        });
+        
+        ctx.lineTo(x + peakData.peakWidth * (peakData.peaks.length), mountain.baseY);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Add darker outline for depth
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Add some texture with darker patches
+        ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+        ctx.fillRect(x + mountain.height * 0.2, mountain.baseY - mountain.height * 0.5, 20, mountain.height * 0.6);
+    });
+}
+
+function drawGround() {
     const floorY = canvas.height - FLOOR_HEIGHT;
 
     // ground
@@ -187,6 +437,15 @@ function drawBackground() {
     for (let x = 0; x < canvas.width + stripeWidth; x += stripeWidth * 2) {
         ctx.fillRect(x - (Date.now() / 20 % (stripeWidth * 2)), floorY + 10, stripeWidth, 10);
     }
+}
+
+function drawBackground() {
+    // Draw all background layers in order (back to front)
+    drawSkyGradient();
+    drawClouds();
+    drawFarMountains();
+    drawNearMountains();
+    drawGround();
 }
 
 function drawPipes() {
