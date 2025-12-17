@@ -56,10 +56,16 @@ document.addEventListener("keyup", (e) => {
 // Helper to convert screen Y to canvas Y and move paddle
 function moveLeftPaddleToClientY(clientY) {
     const rect = canvas.getBoundingClientRect();
-    const y = clientY - rect.top; // Y inside canvas
-
+    
+    // Calculate scaling factors (canvas internal size vs displayed size)
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Convert client coordinates to canvas coordinates
+    const canvasY = (clientY - rect.top) * scaleY;
+    
     // Center paddle on pointer
-    leftPaddleY = y - PADDLE_HEIGHT / 2;
+    leftPaddleY = canvasY - PADDLE_HEIGHT / 2;
 
     // Clamp
     if (leftPaddleY < 0) leftPaddleY = 0;
