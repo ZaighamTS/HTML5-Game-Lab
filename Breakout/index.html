@@ -59,54 +59,6 @@
             opacity: 1;
         }
 
-        .rotate-prompt {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            z-index: 10000;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .rotate-prompt.show {
-            display: flex;
-        }
-
-        .rotate-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            animation: rotate 2s infinite;
-        }
-
-        @keyframes rotate {
-            0%, 100% { transform: rotate(90deg); }
-            50% { transform: rotate(0deg); }
-        }
-
-        .rotate-prompt h2 {
-            font-size: 24px;
-            margin-bottom: 10px;
-        }
-
-        .rotate-prompt p {
-            font-size: 16px;
-            opacity: 0.8;
-        }
-
-        @media (orientation: landscape) {
-            .rotate-prompt {
-                display: none !important;
-            }
-        }
-
         @media (orientation: landscape) {
             .game-container {
                 max-width: calc(100vw - 40px);
@@ -116,11 +68,6 @@
     </style>
 </head>
 <body>
-    <div class="rotate-prompt" id="rotatePrompt">
-        <div class="rotate-icon">📱</div>
-        <h2>Please Rotate Your Device</h2>
-        <p>This game works best in landscape mode</p>
-    </div>
     <button class="back-btn" onclick="window.location.href = '../index.html'">
         ← Back to Menu
     </button>
@@ -163,45 +110,78 @@
         }
 
         // Lock screen orientation to landscape
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(() => {
-                // Lock failed, show rotation prompt
-            });
-        } else if (screen.lockOrientation) {
-            screen.lockOrientation('landscape');
-        } else if (screen.mozLockOrientation) {
-            screen.mozLockOrientation('landscape');
-        } else if (screen.msLockOrientation) {
-            screen.msLockOrientation('landscape');
+        function lockOrientation() {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {
+                    // Lock failed, try alternative methods
+                    if (screen.lockOrientation) {
+                        screen.lockOrientation('landscape');
+                    } else if (screen.mozLockOrientation) {
+                        screen.mozLockOrientation('landscape');
+                    } else if (screen.msLockOrientation) {
+                        screen.msLockOrientation('landscape');
+                    }
+                });
+            } else if (screen.lockOrientation) {
+                screen.lockOrientation('landscape');
+            } else if (screen.mozLockOrientation) {
+                screen.mozLockOrientation('landscape');
+            } else if (screen.msLockOrientation) {
+                screen.msLockOrientation('landscape');
+            }
         }
 
-        // Show rotation prompt on portrait mobile devices
-        function checkOrientation() {
-            const isPortrait = window.innerHeight > window.innerWidth;
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            
-            if (isPortrait && isMobile) {
-                document.getElementById('rotatePrompt').classList.add('show');
-            } else {
-                document.getElementById('rotatePrompt').classList.remove('show');
+        // Enter fullscreen mode
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {
+                    // Fullscreen failed, continue anyway
+                });
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                elem.mozRequestFullScreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
             }
+        }
+
+        // Auto-orient and fullscreen on load
+        function initializeGame() {
+            lockOrientation();
+            // Try fullscreen after a short delay to allow orientation lock
+            setTimeout(() => {
+                enterFullscreen();
+            }, 100);
         }
 
         // Initialize and handle resize
         window.addEventListener('resize', () => {
             resizeCanvas();
-            checkOrientation();
         });
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
                 resizeCanvas();
-                checkOrientation();
+                lockOrientation();
             }, 100);
         });
         
-        // Initial resize
+        // Initial setup
         resizeCanvas();
-        checkOrientation();
+        
+        // Auto-initialize on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }
+        
+        // Also try on first user interaction (required by some browsers)
+        document.addEventListener('click', function initOnClick() {
+            initializeGame();
+            document.removeEventListener('click', initOnClick);
+        }, { once: true });
     </script>
     <script src="game.js"></script>
 </body>
