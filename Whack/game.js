@@ -60,13 +60,6 @@ canvas.addEventListener("touchstart", (e) => {
 function handleHit(e) {
     if (gameState !== "playing") return;
     
-    // If no active moles, just reset combo (no life loss)
-    if (activeMoles.length === 0) {
-        combo = 0;
-        resetDifficulty();
-        return;
-    }
-
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
@@ -82,28 +75,69 @@ function handleHit(e) {
         const dy = y - moleDrawY;
 
         if (Math.sqrt(dx * dx + dy * dy) < MOLE_SIZE / 2) {
-            // Hit the mole!
-            score += 10 + combo * 2;
-            combo++;
-            updateDifficulty(); // Update difficulty with new combo
-            mole.hit = true;
-            mole.hitTimer = 0;
-            mole.retreating = true; // Start retreating animation
-            
-            // Create particle effects
-            createHitParticles(mole.x, moleDrawY);
-            
-            // Screen shake
-            screenShake = 0.15;
             hitAnyMole = true;
+            
+            if (mole.type === "bad") {
+                // Bad mole clicked - lose a life, no other effects
+                lives--;
+                mole.hit = true;
+                mole.hitTimer = 0;
+                mole.retreating = true;
+                
+                // Create red particle effects
+                createBadMoleParticles(mole.x, moleDrawY);
+                screenShake = 0.2;
+                
+                if (lives <= 0) {
+                    gameState = "gameOver";
+                    if (gameOverTime === 0) {
+                        gameOverTime = Date.now();
+                    }
+                    return; // Exit function immediately when game ends
+                }
+                break; // Only process one mole per click (exit loop)
+            } else if (mole.type === "golden") {
+                // Golden mole clicked - normal mole behavior + add time
+                score += 10 + combo * 2;
+                combo++;
+                timeLeft += 10; // Add 10 seconds
+                updateDifficulty();
+                mole.hit = true;
+                mole.hitTimer = 0;
+                mole.retreating = true;
+                
+                // Create golden particle effects
+                createGoldenMoleParticles(mole.x, moleDrawY);
+                screenShake = 0.15;
+            } else {
+                // Normal mole clicked
+                score += 10 + combo * 2;
+                combo++;
+                updateDifficulty();
+                mole.hit = true;
+                mole.hitTimer = 0;
+                mole.retreating = true;
+                
+                // Create particle effects
+                createHitParticles(mole.x, moleDrawY);
+                screenShake = 0.15;
+            }
             break; // Only hit one mole per click
         }
     }
     
     if (!hitAnyMole) {
-        // Missed all moles - reset combo and difficulty
+        // Wrong click - deduct 5 seconds and reset combo/difficulty
+        timeLeft = Math.max(0, timeLeft - 5);
         combo = 0;
         resetDifficulty();
+        
+        if (timeLeft <= 0) {
+            gameState = "gameOver";
+            if (gameOverTime === 0) {
+                gameOverTime = Date.now();
+            }
+        }
     }
 }
 
@@ -146,16 +180,16 @@ function startGame() {
 
 // Calculate difficulty multipliers
 function updateDifficulty() {
-    // Time-based difficulty: increases over time
+    // Time-based difficulty: increases gradually over time
     const timeProgress = (START_TIME - timeLeft) / START_TIME; // 0 to 1
-    baseDifficultyMultiplier = 1.0 + (timeProgress * 0.5); // 1.0 to 1.5
+    baseDifficultyMultiplier = 1.0 + (timeProgress * 0.2); // 1.0 to 1.2 (more gradual)
     
-    // Combo-based difficulty: increases with combo (caps at 2.0x)
-    comboDifficultyMultiplier = 1.0 + Math.min(combo * 0.1, 1.0); // 1.0 to 2.0
+    // Combo-based difficulty: increases gradually with combo (caps at 1.5x)
+    comboDifficultyMultiplier = 1.0 + Math.min(combo * 0.05, 0.5); // 1.0 to 1.5 (more gradual)
     
     // Apply to spawn interval
     spawnInterval = baseSpawnInterval / (baseDifficultyMultiplier * comboDifficultyMultiplier);
-    spawnInterval = Math.max(0.4, spawnInterval); // Minimum 0.4 seconds
+    spawnInterval = Math.max(0.5, spawnInterval); // Minimum 0.5 seconds (slightly slower)
 }
 
 // Reset difficulty when combo is lost
@@ -178,10 +212,28 @@ function spawnMole() {
     const maxMoles = Math.min(3, Math.floor(1 + comboDifficultyMultiplier));
     if (activeMoles.length >= maxMoles) return;
     
+    // Determine mole type
+    let moleType = "normal";
+    const rand = Math.random();
+    
+    // Golden mole: 5% chance (very rare)
+    if (rand < 0.05) {
+        moleType = "golden";
+    }
+    // Bad mole: 15% chance
+    else if (rand < 0.20) {
+        moleType = "bad";
+    }
+    // Normal mole: 80% chance
+    else {
+        moleType = "normal";
+    }
+    
     const mole = {
         x: hole.x + HOLE_SIZE / 2,
         holeY: hole.y + HOLE_SIZE / 2,
         holeIndex: randomHoleIndex,
+        type: moleType, // "normal" | "bad" | "golden"
         timer: 0,
         hit: false,
         hitTimer: 0,
@@ -288,16 +340,22 @@ function update(dt) {
                 mole.yOffset = -25 + (85 * escapeProgress); // -25 (peeking) to 60 (underground)
                 
                 if (escapeProgress >= 1) {
-                    // Mole escaped - lose a life and reset combo/difficulty
-                    lives--;
-                    combo = 0;
-                    resetDifficulty();
-                    activeMoles.splice(i, 1); // Remove mole
-                    
-                    if (lives <= 0) {
-                        gameState = "gameOver";
-                        if (gameOverTime === 0) {
-                            gameOverTime = Date.now();
+                    // Mole escaped
+                    if (mole.type === "bad") {
+                        // Bad mole escape - no penalty, just remove it
+                        activeMoles.splice(i, 1);
+                    } else {
+                        // Normal or golden mole escape - lose a life and reset combo/difficulty
+                        lives--;
+                        combo = 0;
+                        resetDifficulty();
+                        activeMoles.splice(i, 1);
+                        
+                        if (lives <= 0) {
+                            gameState = "gameOver";
+                            if (gameOverTime === 0) {
+                                gameOverTime = Date.now();
+                            }
                         }
                     }
                 }
@@ -428,11 +486,27 @@ function drawSingleMole(activeMole) {
     ctx.ellipse(0, MOLE_SIZE / 2 + 5, MOLE_SIZE / 2 * 0.9, MOLE_SIZE / 2 * 0.3, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body gradient
-    const bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
-    bodyGradient.addColorStop(0, "#d97706");
-    bodyGradient.addColorStop(0.5, "#92400e");
-    bodyGradient.addColorStop(1, "#78350f");
+    // Body gradient - different colors based on mole type
+    let bodyGradient;
+    if (activeMole.type === "bad") {
+        // Bad mole: red/purple colors
+        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
+        bodyGradient.addColorStop(0, "#dc2626");
+        bodyGradient.addColorStop(0.5, "#991b1b");
+        bodyGradient.addColorStop(1, "#7f1d1d");
+    } else if (activeMole.type === "golden") {
+        // Golden mole: bright gold/yellow colors
+        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
+        bodyGradient.addColorStop(0, "#fbbf24");
+        bodyGradient.addColorStop(0.5, "#f59e0b");
+        bodyGradient.addColorStop(1, "#d97706");
+    } else {
+        // Normal mole: brown colors
+        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
+        bodyGradient.addColorStop(0, "#d97706");
+        bodyGradient.addColorStop(0.5, "#92400e");
+        bodyGradient.addColorStop(1, "#78350f");
+    }
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.arc(0, 0, MOLE_SIZE / 2, 0, Math.PI * 2);
@@ -456,26 +530,71 @@ function drawSingleMole(activeMole) {
     ctx.ellipse(-2, 4, 2, 1.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes (white)
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(-18, -8, 8, 0, Math.PI * 2);
-    ctx.arc(18, -8, 8, 0, Math.PI * 2);
-    ctx.fill();
+    // Eyes - different based on mole type
+    if (activeMole.type === "bad") {
+        // Bad mole: red eyes with X marks
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
+        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // X marks in eyes
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-22, -12);
+        ctx.lineTo(-14, -4);
+        ctx.moveTo(-14, -12);
+        ctx.lineTo(-22, -4);
+        ctx.moveTo(14, -12);
+        ctx.lineTo(22, -4);
+        ctx.moveTo(22, -12);
+        ctx.lineTo(14, -4);
+        ctx.stroke();
+    } else if (activeMole.type === "golden") {
+        // Golden mole: bright yellow/white eyes with sparkle
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath();
+        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
+        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye shine (larger for golden)
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.beginPath();
+        ctx.arc(-16, -10, 4, 0, Math.PI * 2);
+        ctx.arc(20, -10, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Pupils (smaller for cute look)
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-18, -8, 3, 0, Math.PI * 2);
+        ctx.arc(18, -8, 3, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Normal mole: white eyes
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
+        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.fill();
 
-    // Eye shine
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.beginPath();
-    ctx.arc(-16, -10, 3, 0, Math.PI * 2);
-    ctx.arc(20, -10, 3, 0, Math.PI * 2);
-    ctx.fill();
+        // Eye shine
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath();
+        ctx.arc(-16, -10, 3, 0, Math.PI * 2);
+        ctx.arc(20, -10, 3, 0, Math.PI * 2);
+        ctx.fill();
 
-    // Pupils
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.arc(-18, -8, 4, 0, Math.PI * 2);
-    ctx.arc(18, -8, 4, 0, Math.PI * 2);
-    ctx.fill();
+        // Pupils
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-18, -8, 4, 0, Math.PI * 2);
+        ctx.arc(18, -8, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
     // Mouth
     ctx.strokeStyle = "#000";
@@ -531,42 +650,71 @@ function drawHUD() {
     ctx.fillStyle = timeColor;
     ctx.fillText(`Time: ${Math.ceil(timeLeft)}`, canvas.width - 20, 35);
 
-    // Lives display
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 24px Arial";
-    const livesText = `Lives: ${lives}`;
-    const livesX = canvas.width / 2 - 60;
-    ctx.fillText(livesText, livesX, 35);
-    
-    // Draw heart icons for lives
-    ctx.fillStyle = lives > 0 ? "#ef4444" : "#666";
-    for (let i = 0; i < START_LIVES; i++) {
-        const heartX = canvas.width / 2 + 80 + i * 30;
-        const heartY = 25;
-        const heartSize = 12;
+    // Draw heart icons for lives (hearts only, no text)
+    function drawHeart(x, y, size, filled, color) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(size / 20, size / 20); // Normalize to size 20
         
-        // Draw heart shape
         ctx.beginPath();
-        ctx.arc(heartX - heartSize * 0.25, heartY - heartSize * 0.1, heartSize * 0.5, 0, Math.PI * 2);
-        ctx.arc(heartX + heartSize * 0.25, heartY - heartSize * 0.1, heartSize * 0.5, 0, Math.PI * 2);
-        ctx.fill();
         
-        // Draw heart point
-        ctx.beginPath();
-        ctx.moveTo(heartX, heartY + heartSize * 0.4);
-        ctx.lineTo(heartX - heartSize * 0.6, heartY - heartSize * 0.2);
-        ctx.lineTo(heartX + heartSize * 0.6, heartY - heartSize * 0.2);
+        // Heart shape using bezier curves for smooth heart shape
+        // Top left curve
+        ctx.moveTo(0, 5);
+        ctx.bezierCurveTo(-5, -5, -10, -5, -10, 0);
+        ctx.bezierCurveTo(-10, 5, 0, 12, 0, 12);
+        
+        // Top right curve
+        ctx.bezierCurveTo(0, 12, 10, 5, 10, 0);
+        ctx.bezierCurveTo(10, -5, 5, -5, 0, 5);
+        
         ctx.closePath();
-        ctx.fill();
         
-        // Cross out if life is lost
-        if (i >= lives) {
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 3;
+        if (filled) {
+            // Fill the heart
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Add highlight for depth
+            ctx.fillStyle = "rgba(255,255,255,0.4)";
             ctx.beginPath();
-            ctx.moveTo(heartX - heartSize, heartY - heartSize);
-            ctx.lineTo(heartX + heartSize, heartY + heartSize);
+            ctx.arc(-3, -2, 3, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // Draw outline only
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = color + "40"; // Add transparency
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
+    const heartStartX = canvas.width / 2 - (START_LIVES * 28) / 2; // Center the hearts
+    const heartY = 30;
+    const heartSize = 18;
+    
+    for (let i = 0; i < START_LIVES; i++) {
+        const heartX = heartStartX + i * 32;
+        const hasLife = i < lives;
+        
+        if (hasLife) {
+            // Draw full red heart for remaining lives
+            drawHeart(heartX, heartY, heartSize, true, "#ef4444");
+        } else {
+            // Draw empty/gray heart outline for lost lives
+            drawHeart(heartX, heartY, heartSize, false, "#666666");
+            
+            // Draw X mark for lost lives
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(heartX - heartSize * 0.5, heartY - heartSize * 0.4);
+            ctx.lineTo(heartX + heartSize * 0.5, heartY + heartSize * 0.4);
+            ctx.moveTo(heartX + heartSize * 0.5, heartY - heartSize * 0.4);
+            ctx.lineTo(heartX - heartSize * 0.5, heartY + heartSize * 0.4);
             ctx.stroke();
         }
     }
