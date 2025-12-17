@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Whack-a-Mole</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+
+        body {
+            background: radial-gradient(circle at top, #1f2933, #020617);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            /* Hide browser UI on mobile */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .game-container {
+            position: relative;
+            border: 3px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+            background: #000;
+            padding: 4px;
+            max-width: 100vw;
+            max-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            background: #000;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: none;
+            font-size: 12px;
+            background: #111827;
+            color: #e5e7eb;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        .back-btn:hover {
+            opacity: 1;
+        }
+
+        @media (orientation: landscape) {
+            .game-container {
+                max-width: calc(100vw - 40px);
+                max-height: calc(100vh - 40px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href = '../index.html'">
+        ← Back to Menu
+    </button>
+
+    <div class="game-container">
+        <canvas id="gameCanvas" width="900" height="600"></canvas>
+    </div>
+    <script>
+        // Responsive canvas scaling
+        function resizeCanvas() {
+            const canvas = document.getElementById('gameCanvas');
+            const container = document.querySelector('.game-container');
+            const gameWidth = 900;  // Original game width
+            const gameHeight = 600; // Original game height
+            const aspectRatio = gameWidth / gameHeight;
+            
+            // Get available space
+            const maxWidth = window.innerWidth - 40;  // Account for padding
+            const maxHeight = window.innerHeight - 40;
+            
+            let newWidth, newHeight;
+            
+            // Calculate dimensions to fit while maintaining aspect ratio
+            if (maxWidth / maxHeight > aspectRatio) {
+                // Height is the limiting factor
+                newHeight = maxHeight;
+                newWidth = newHeight * aspectRatio;
+            } else {
+                // Width is the limiting factor
+                newWidth = maxWidth;
+                newHeight = newWidth / aspectRatio;
+            }
+            
+            // Set canvas display size (CSS)
+            canvas.style.width = newWidth + 'px';
+            canvas.style.height = newHeight + 'px';
+            
+            // Keep internal resolution at original size for game logic
+            // The canvas will scale automatically
+        }
+
+        // Lock screen orientation to landscape - AGGRESSIVE MODE
+        function lockOrientation() {
+            const orientation = 'landscape';
+            
+            // Try multiple methods for maximum compatibility
+            const methods = [
+                () => {
+                    if (screen.orientation && screen.orientation.lock) {
+                        return screen.orientation.lock(orientation);
+                    }
+                },
+                () => {
+                    if (screen.lockOrientation) {
+                        return screen.lockOrientation(orientation);
+                    }
+                },
+                () => {
+                    if (screen.mozLockOrientation) {
+                        return screen.mozLockOrientation(orientation);
+                    }
+                },
+                () => {
+                    if (screen.msLockOrientation) {
+                        return screen.msLockOrientation(orientation);
+                    }
+                }
+            ];
+            
+            for (const method of methods) {
+                try {
+                    const result = method();
+                    if (result && typeof result.then === 'function') {
+                        result.catch(() => {
+                            // Try next method if this one fails
+                        });
+                        return;
+                    } else if (result !== undefined) {
+                        return;
+                    }
+                } catch (e) {
+                    // Continue to next method
+                }
+            }
+        }
+        
+        // Aggressively lock orientation with multiple attempts
+        function lockOrientationAggressive() {
+            lockOrientation();
+            
+            // Try multiple times with delays
+            [50, 100, 200, 300, 500, 750, 1000].forEach(delay => {
+                setTimeout(() => {
+                    lockOrientation();
+                }, delay);
+            });
+        }
+
+        // Enter fullscreen mode (more aggressive approach)
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            const body = document.body;
+            
+            // Try multiple methods for maximum compatibility
+            const methods = [
+                () => elem.requestFullscreen().catch(() => {}),
+                () => elem.webkitRequestFullscreen().catch(() => {}),
+                () => elem.mozRequestFullScreen().catch(() => {}),
+                () => elem.msRequestFullscreen().catch(() => {}),
+                () => body.requestFullscreen().catch(() => {}),
+                () => body.webkitRequestFullscreen().catch(() => {}),
+                () => body.mozRequestFullScreen().catch(() => {}),
+                () => body.msRequestFullscreen().catch(() => {})
+            ];
+            
+            for (const method of methods) {
+                try {
+                    if (method) {
+                        const result = method();
+                        if (result && typeof result.then === 'function') {
+                            result.catch(() => {}); // Silently handle rejection
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    // Silently continue to next method
+                }
+            }
+        }
+
+        // Check if already in fullscreen
+        function isFullscreen() {
+            return !!(document.fullscreenElement || 
+                     document.webkitFullscreenElement || 
+                     document.mozFullScreenElement || 
+                     document.msFullscreenElement);
+        }
+
+        // Auto-orient and fullscreen on load - AGGRESSIVE MODE
+        function initializeGame() {
+            lockOrientationAggressive();
+            resizeCanvas();
+            
+            // Try fullscreen with multiple strategies and timing
+            const tryFullscreenMultipleTimes = () => {
+                if (!isFullscreen()) {
+                    enterFullscreen();
+                }
+            };
+            
+            // Immediate attempts
+            tryFullscreenMultipleTimes();
+            
+            // Try with requestAnimationFrame (runs before paint)
+            requestAnimationFrame(() => {
+                tryFullscreenMultipleTimes();
+            });
+            
+            // Multiple delayed attempts
+            [50, 100, 200, 300, 500, 750, 1000, 1500].forEach(delay => {
+                setTimeout(() => {
+                    tryFullscreenMultipleTimes();
+                }, delay);
+            });
+        }
+
+        // Initialize and handle resize
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                resizeCanvas();
+                lockOrientationAggressive();
+                if (!isFullscreen()) enterFullscreen();
+            }, 100);
+        });
+        
+        // Also try orientation lock on various events
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                lockOrientationAggressive();
+            }, 100);
+        });
+        
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    lockOrientationAggressive();
+                }, 50);
+            }
+        });
+        
+        window.addEventListener('focus', () => {
+            setTimeout(() => {
+                lockOrientationAggressive();
+            }, 50);
+        });
+        
+        // Try on any user interaction (some browsers require this)
+        const tryLockOrientationOnInteraction = () => {
+            lockOrientationAggressive();
+        };
+        
+        document.addEventListener('click', tryLockOrientationOnInteraction, { once: false });
+        document.addEventListener('touchstart', tryLockOrientationOnInteraction, { once: false });
+        
+        // Try fullscreen on ANY user interaction (fallback)
+        const tryFullscreenOnInteraction = () => {
+            if (!isFullscreen()) {
+                enterFullscreen();
+            }
+        };
+        
+        // Listen for various user interaction events (as fallback)
+        document.addEventListener('click', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('touchstart', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('touchend', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('keydown', tryFullscreenOnInteraction, { once: false });
+        
+        // Initial setup - try multiple initialization points
+        resizeCanvas();
+        
+        // Try on DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }
+        
+        // Also try on window load (after all resources loaded)
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (!isFullscreen()) enterFullscreen();
+            }, 100);
+        });
+        
+        // Try when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !isFullscreen()) {
+                setTimeout(() => {
+                    enterFullscreen();
+                }, 50);
+            }
+        });
+        
+        // Try on window focus
+        window.addEventListener('focus', () => {
+            if (!isFullscreen()) {
+                setTimeout(() => {
+                    enterFullscreen();
+                }, 50);
+            }
+        });
+        
+        // Try on pageshow (back/forward navigation)
+        window.addEventListener('pageshow', () => {
+            setTimeout(() => {
+                if (!isFullscreen()) enterFullscreen();
+            }, 100);
+        });
+    </script>
+    <script src="game.js"></script>
+</body>
+</html>
