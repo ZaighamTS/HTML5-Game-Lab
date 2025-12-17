@@ -5,17 +5,29 @@
     <title>Pong HTML5</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, orientation=landscape" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+        }
+
+        body {
             background: radial-gradient(circle at top, #1f2933, #020617);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             width: 100vw;
-            overflow: hidden;
+            /* Hide browser UI on mobile */
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .game-container {
@@ -131,29 +143,72 @@
             }
         }
 
-        // Enter fullscreen mode
+        // Enter fullscreen mode (more aggressive approach)
         function enterFullscreen() {
             const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen().catch(() => {
-                    // Fullscreen failed, continue anyway
-                });
-            } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen();
-            } else if (elem.mozRequestFullScreen) {
-                elem.mozRequestFullScreen();
-            } else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
+            const body = document.body;
+            
+            // Try multiple methods for maximum compatibility
+            const methods = [
+                () => elem.requestFullscreen(),
+                () => elem.webkitRequestFullscreen(),
+                () => elem.mozRequestFullScreen(),
+                () => elem.msRequestFullscreen(),
+                () => body.requestFullscreen(),
+                () => body.webkitRequestFullscreen(),
+                () => body.mozRequestFullScreen(),
+                () => body.msRequestFullscreen()
+            ];
+            
+            for (const method of methods) {
+                try {
+                    if (method) {
+                        const result = method();
+                        if (result && typeof result.then === 'function') {
+                            result.catch(() => {});
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    // Continue to next method
+                }
             }
         }
 
-        // Auto-orient and fullscreen on load
+        // Check if already in fullscreen
+        function isFullscreen() {
+            return !!(document.fullscreenElement || 
+                     document.webkitFullscreenElement || 
+                     document.mozFullScreenElement || 
+                     document.msFullscreenElement);
+        }
+
+        // Auto-orient and fullscreen on load - AGGRESSIVE MODE
         function initializeGame() {
             lockOrientation();
-            // Try fullscreen after a short delay to allow orientation lock
-            setTimeout(() => {
-                enterFullscreen();
-            }, 100);
+            resizeCanvas();
+            
+            // Try fullscreen with multiple strategies and timing
+            const tryFullscreenMultipleTimes = () => {
+                if (!isFullscreen()) {
+                    enterFullscreen();
+                }
+            };
+            
+            // Immediate attempts
+            tryFullscreenMultipleTimes();
+            
+            // Try with requestAnimationFrame (runs before paint)
+            requestAnimationFrame(() => {
+                tryFullscreenMultipleTimes();
+            });
+            
+            // Multiple delayed attempts
+            [50, 100, 200, 300, 500, 750, 1000, 1500].forEach(delay => {
+                setTimeout(() => {
+                    tryFullscreenMultipleTimes();
+                }, delay);
+            });
         }
 
         // Initialize and handle resize
@@ -164,24 +219,64 @@
             setTimeout(() => {
                 resizeCanvas();
                 lockOrientation();
+                if (!isFullscreen()) enterFullscreen();
             }, 100);
         });
         
-        // Initial setup
+        // Try fullscreen on ANY user interaction (fallback)
+        const tryFullscreenOnInteraction = () => {
+            if (!isFullscreen()) {
+                enterFullscreen();
+            }
+        };
+        
+        // Listen for various user interaction events (as fallback)
+        document.addEventListener('click', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('touchstart', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('touchend', tryFullscreenOnInteraction, { once: false });
+        document.addEventListener('keydown', tryFullscreenOnInteraction, { once: false });
+        
+        // Initial setup - try multiple initialization points
         resizeCanvas();
         
-        // Auto-initialize on page load
+        // Try on DOMContentLoaded
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeGame);
         } else {
             initializeGame();
         }
         
-        // Also try on first user interaction (required by some browsers)
-        document.addEventListener('click', function initOnClick() {
-            initializeGame();
-            document.removeEventListener('click', initOnClick);
-        }, { once: true });
+        // Also try on window load (after all resources loaded)
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (!isFullscreen()) enterFullscreen();
+            }, 100);
+        });
+        
+        // Try when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !isFullscreen()) {
+                setTimeout(() => {
+                    enterFullscreen();
+                }, 50);
+            }
+        });
+        
+        // Try on window focus
+        window.addEventListener('focus', () => {
+            if (!isFullscreen()) {
+                setTimeout(() => {
+                    enterFullscreen();
+                }, 50);
+            }
+        });
+        
+        // Try on pageshow (back/forward navigation)
+        window.addEventListener('pageshow', () => {
+            setTimeout(() => {
+                if (!isFullscreen()) enterFullscreen();
+            }, 100);
+        });
     </script>
     <script src="game.js"></script>
 </body>
