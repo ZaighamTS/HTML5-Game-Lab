@@ -38,7 +38,16 @@ let rightPressed = false;
 let leftPressed = false;
 
 let score = 0;
-let highScore = parseInt(localStorage.getItem("breakoutHighScore") || "0");
+let highScore = 0;
+if (typeof window !== 'undefined' && window.GameUtils) {
+    highScore = parseInt(window.GameUtils.SafeStorage.get("breakoutHighScore", "0"), 10);
+} else {
+    try {
+        highScore = parseInt(localStorage.getItem("breakoutHighScore") || "0", 10);
+    } catch (e) {
+        highScore = 0;
+    }
+}
 let lives = START_LIVES;
 let selectedLevel = 1; // 1, 2, or 3
 let bricksDestroyed = 0;
@@ -676,7 +685,15 @@ function checkAllBallsLost() {
             // Update high score
             if (score > highScore) {
                 highScore = score;
-                localStorage.setItem("breakoutHighScore", highScore.toString());
+                if (typeof window !== 'undefined' && window.GameUtils) {
+                    window.GameUtils.SafeStorage.set("breakoutHighScore", highScore.toString());
+                } else {
+                    try {
+                        localStorage.setItem("breakoutHighScore", highScore.toString());
+                    } catch (e) {
+                        console.warn('Failed to save high score:', e);
+                    }
+                }
             }
             gameState = "gameOver";
             // Play game over sound

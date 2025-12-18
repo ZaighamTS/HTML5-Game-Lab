@@ -325,6 +325,32 @@
             }, 100);
         });
     </script>
+    <!-- Load utilities for error handling -->
+    <script src="../common/utils.js"></script>
+    <script>
+        // Check browser support before loading game
+        (function() {
+            if (window.GameUtils && window.GameUtils.BrowserSupport) {
+                const support = window.GameUtils.BrowserSupport.getStatus();
+                
+                if (!support.canvas) {
+                    window.GameUtils.ErrorHandler.showError(
+                        'Your browser does not support HTML5 Canvas. Please use a modern browser.',
+                        true
+                    );
+                    return;
+                }
+                
+                if (!support.animationFrame) {
+                    window.GameUtils.ErrorHandler.showError(
+                        'Your browser does not support requestAnimationFrame. Please use a modern browser.',
+                        true
+                    );
+                    return;
+                }
+            }
+        })();
+    </script>
     <script src="game.js"></script>
 </body>
 </html>

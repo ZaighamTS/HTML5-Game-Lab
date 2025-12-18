@@ -2,33 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>HTML5 Mini Games</title>
+    <title>HTML5 Game Lab - Classic Arcade Games</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Play classic arcade games: Breakout, Pong, Flappy Bird, and Whack-a-Mole. Free HTML5 games, no downloads required." />
+    <meta name="keywords" content="html5 games, arcade games, breakout, pong, flappy bird, whack a mole, free games" />
+    <meta name="author" content="HTML5 Game Lab" />
+    <meta name="theme-color" content="#020617" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="HTML5 Game Lab - Classic Arcade Games" />
+    <meta property="og:description" content="Play classic arcade games built with HTML5 Canvas" />
+    <meta property="og:url" content="https://zaighamts.github.io/HTML5-Game-Lab/" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="HTML5 Game Lab" />
+    <meta name="twitter:description" content="Free classic arcade games built with HTML5" />
+    
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    
+    <!-- Load utilities -->
+    <script src="common/utils.js"></script>
 </head>
 <body>
     <h1>HTML5 Game Lab</h1>
     <p class="subtitle">Tap a game to play. Works on desktop & mobile.</p>
-    <p class="subtitle">version: 25.12.18.1</p>
+    <p class="subtitle">version: 25.12.18.2</p>
 
-    <div class="games-grid">
+    <!-- Loading indicator -->
+    <div id="loader" class="loader" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading game...</p>
+    </div>
+
+    <div class="games-grid" role="main" aria-label="Game selection">
 
         <!-- Game 1: Pong -->
-        <article class="game-card">
-            <div class="game-thumb">
+        <article class="game-card" role="article" aria-label="Pong Classic game">
+            <div class="game-thumb" aria-hidden="true">
                 AI PONG
             </div>
             <div class="game-info">
                 <h2>Pong Classic</h2>
                 <p>Retro paddle vs AI. Mouse / touch / keyboard supported.</p>
-                <div class="pill">
-                    <span class="dot"></span>
+                <div class="pill" aria-label="Game type: Canvas Arcade">
+                    <span class="dot" aria-hidden="true"></span>
                     <span>Canvas • Arcade</span>
                 </div>
             </div>
             <div class="card-footer">
-                <button class="play-btn" onclick="openGame('Pong/index.html')">
-                    <span class="icon">▶</span>
+                <button class="play-btn" onclick="openGame('Pong/index.html')" aria-label="Play Pong Classic game">
+                    <span class="icon" aria-hidden="true">▶</span>
                     <span>Play</span>
                 </button>
                 <span class="tag">1 player • vs CPU</span>
@@ -36,21 +62,21 @@
         </article>
 
         <!-- Game 2: Pong 2-Player -->
-        <article class="game-card">
-            <div class="game-thumb">
+        <article class="game-card" role="article" aria-label="Pong Versus game">
+            <div class="game-thumb" aria-hidden="true">
                 PvP PONG
             </div>
             <div class="game-info">
                 <h2>Pong Versus</h2>
                 <p>Two players on one keyboard. Classic local multiplayer.</p>
-                <div class="pill">
-                    <span class="dot"></span>
+                <div class="pill" aria-label="Game type: Canvas 2 Players">
+                    <span class="dot" aria-hidden="true"></span>
                     <span>Canvas • 2 Players</span>
                 </div>
             </div>
             <div class="card-footer">
-                <button class="play-btn" onclick="openGame('Pong-2P/index.html')">
-                    <span class="icon">▶</span>
+                <button class="play-btn" onclick="openGame('Pong-2P/index.html')" aria-label="Play Pong Versus game">
+                    <span class="icon" aria-hidden="true">▶</span>
                     <span>Play</span>
                 </button>
                 <span class="tag">P1: W/S • P2: ↑/↓</span>
@@ -58,21 +84,21 @@
         </article>
 
         <!-- Game: Breakout -->
-<article class="game-card">
-    <div class="game-thumb">
+<article class="game-card" role="article" aria-label="Breakout game">
+    <div class="game-thumb" aria-hidden="true">
         BR!CKOUT
     </div>
     <div class="game-info">
         <h2>Breakout</h2>
         <p>Destroy all bricks. Arrow keys or mouse to move the paddle.</p>
-        <div class="pill">
-            <span class="dot"></span>
+        <div class="pill" aria-label="Game type: Canvas Input and Collisions">
+            <span class="dot" aria-hidden="true"></span>
             <span>Canvas • Input & Collisions</span>
         </div>
     </div>
     <div class="card-footer">
-        <button class="play-btn" onclick="openGame('Breakout/index.html')">
-            <span class="icon">▶</span>
+        <button class="play-btn" onclick="openGame('Breakout/index.html')" aria-label="Play Breakout game">
+            <span class="icon" aria-hidden="true">▶</span>
             <span>Play</span>
         </button>
         <span class="tag">Arrows / Mouse</span>
@@ -80,21 +106,21 @@
 </article>
 
 <!-- Game: Flappy Clone -->
-<article class="game-card">
-    <div class="game-thumb">
+<article class="game-card" role="article" aria-label="Sky Flap game">
+    <div class="game-thumb" aria-hidden="true">
         FLAPPY
     </div>
     <div class="game-info">
         <h2>Sky Flap</h2>
         <p>Tap / click / space to fly through endless pipes.</p>
-        <div class="pill">
-            <span class="dot"></span>
+        <div class="pill" aria-label="Game type: Canvas Physics and Spawning">
+            <span class="dot" aria-hidden="true"></span>
             <span>Canvas • Physics & Spawning</span>
         </div>
     </div>
     <div class="card-footer">
-        <button class="play-btn" onclick="openGame('Flappy/index.html')">
-            <span class="icon">▶</span>
+        <button class="play-btn" onclick="openGame('Flappy/index.html')" aria-label="Play Sky Flap game">
+            <span class="icon" aria-hidden="true">▶</span>
             <span>Play</span>
         </button>
         <span class="tag">Mobile friendly</span>
@@ -102,21 +128,21 @@
 </article>
 
 <!-- Game: Whack-a-Mole -->
-<article class="game-card">
-    <div class="game-thumb">
+<article class="game-card" role="article" aria-label="Whack-a-Mole game">
+    <div class="game-thumb" aria-hidden="true">
         WHACK iT
     </div>
     <div class="game-info">
         <h2>Whack-a-Mole</h2>
         <p>Tap / click the mole to score points.</p>
-        <div class="pill">
-            <span class="dot"></span>
+        <div class="pill" aria-label="Game type: Canvas Clicking">
+            <span class="dot" aria-hidden="true"></span>
             <span>Canvas • Clicking</span>
         </div>
     </div>
     <div class="card-footer">
-        <button class="play-btn" onclick="openGame('Whack/Index.html')">
-            <span class="icon">▶</span>
+        <button class="play-btn" onclick="openGame('Whack/Index.html')" aria-label="Play Whack-a-Mole game">
+            <span class="icon" aria-hidden="true">▶</span>
             <span>Play</span>
         </button>
         <span class="tag">Mobile friendly</span>
@@ -148,9 +174,79 @@
     </footer>
 
     <script>
-        function openGame(path) {
-            window.location.href = path;
+        // Check browser support on page load
+        (function() {
+            if (window.GameUtils && window.GameUtils.BrowserSupport) {
+                const support = window.GameUtils.BrowserSupport.getStatus();
+                
+                if (!support.canvas) {
+                    window.GameUtils.ErrorHandler.showError(
+                        'Your browser does not support HTML5 Canvas. Please use a modern browser.',
+                        true
+                    );
+                    return;
+                }
+                
+                if (!support.animationFrame) {
+                    window.GameUtils.ErrorHandler.showError(
+                        'Your browser does not support requestAnimationFrame. Please use a modern browser.',
+                        true
+                    );
+                    return;
+                }
+            }
+        })();
+
+        // Show loading indicator
+        function showLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'flex';
+            }
         }
+
+        // Hide loading indicator
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+        }
+
+        // Open game with loading state
+        function openGame(path) {
+            showLoader();
+            // Small delay to show loader, then navigate
+            setTimeout(() => {
+                window.location.href = path;
+            }, 100);
+        }
+
+        // Keyboard navigation support
+        document.addEventListener('keydown', (e) => {
+            const playButtons = document.querySelectorAll('.play-btn:not(.disabled)');
+            
+            // Arrow keys navigation
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                const currentIndex = Array.from(playButtons).indexOf(document.activeElement);
+                let nextIndex;
+                
+                if (e.key === 'ArrowRight') {
+                    nextIndex = (currentIndex + 1) % playButtons.length;
+                } else {
+                    nextIndex = (currentIndex - 1 + playButtons.length) % playButtons.length;
+                }
+                
+                playButtons[nextIndex].focus();
+                e.preventDefault();
+            }
+            
+            // Enter/Space to activate focused button
+            if ((e.key === 'Enter' || e.key === ' ') && document.activeElement.classList.contains('play-btn')) {
+                e.preventDefault();
+                document.activeElement.click();
+            }
+        });
     </script>
 
 </body>

@@ -30,7 +30,16 @@ let clouds = []; // { x, y, size, type }
 let farMountains = []; // { x, baseY, height }
 let nearMountains = []; // { x, baseY, height }
 let score = 0;
-let bestScore = parseInt(localStorage.getItem("flappyBestScore") || "0", 10);
+let bestScore = 0;
+if (typeof window !== 'undefined' && window.GameUtils) {
+    bestScore = parseInt(window.GameUtils.SafeStorage.get("flappyBestScore", "0"), 10);
+} else {
+    try {
+        bestScore = parseInt(localStorage.getItem("flappyBestScore") || "0", 10);
+    } catch (e) {
+        bestScore = 0;
+    }
+}
 
 let gameState = "menu"; // "menu" | "playing" | "gameOver"
 
@@ -157,7 +166,15 @@ function gameOver() {
     gameState = "gameOver";
     if (score > bestScore) {
         bestScore = score;
-        localStorage.setItem("flappyBestScore", bestScore.toString());
+        if (typeof window !== 'undefined' && window.GameUtils) {
+            window.GameUtils.SafeStorage.set("flappyBestScore", bestScore.toString());
+        } else {
+            try {
+                localStorage.setItem("flappyBestScore", bestScore.toString());
+            } catch (e) {
+                console.warn('Failed to save best score:', e);
+            }
+        }
     }
     // Play game over sound
     gameOverSound.currentTime = 0;
