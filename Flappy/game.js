@@ -44,6 +44,13 @@ let parallaxOffset = 0; // global parallax scroll offset
 // input flags
 let flapQueued = false;
 
+// ====== SOUNDS ======
+const flapSound = new Audio("../Sounds/flap.wav");
+const scoreSound = new Audio("../Sounds/score.wav");
+const hitSound = new Audio("../Sounds/hit.wav");
+const gameOverSound = new Audio("../Sounds/gameover.wav");
+const gameStartSound = new Audio("../Sounds/gamestart.wav");
+
 // ====== INPUT HANDLERS ======
 function queueFlap() {
     if (gameState === "menu") {
@@ -76,6 +83,9 @@ canvas.addEventListener("touchstart", (e) => {
 // ====== GAME CONTROL ======
 function startGame() {
     gameState = "playing";
+    // Play game start sound
+    gameStartSound.currentTime = 0;
+    gameStartSound.play();
 }
 
 function resetGame() {
@@ -149,6 +159,9 @@ function gameOver() {
         bestScore = score;
         localStorage.setItem("flappyBestScore", bestScore.toString());
     }
+    // Play game over sound
+    gameOverSound.currentTime = 0;
+    gameOverSound.play();
 }
 
 // ====== PIPE SPAWNING ======
@@ -173,6 +186,9 @@ function update(deltaTime) {
     if (flapQueued) {
         birdVelY = FLAP_STRENGTH;
         flapQueued = false;
+        // Play flap sound
+        flapSound.currentTime = 0;
+        flapSound.play();
     } else {
         birdVelY += GRAVITY * deltaTime;
     }
@@ -189,6 +205,9 @@ function update(deltaTime) {
     }
     if (birdY + BIRD_SIZE / 2 > floorY) {
         birdY = floorY - BIRD_SIZE / 2;
+        // Play hit sound for ground collision
+        hitSound.currentTime = 0;
+        hitSound.play();
         gameOver();
     }
 
@@ -292,6 +311,9 @@ function update(deltaTime) {
             const hitTopPipe = birdTop < topPipeBottom;
             const hitBottomPipe = birdBottom > bottomPipeTop;
             if (hitTopPipe || hitBottomPipe) {
+                // Play hit sound
+                hitSound.currentTime = 0;
+                hitSound.play();
                 gameOver();
             }
         }
@@ -300,6 +322,9 @@ function update(deltaTime) {
         if (!pipe.passed && pipe.x + PIPE_WIDTH < birdX) {
             pipe.passed = true;
             score++;
+            // Play score sound
+            scoreSound.currentTime = 0;
+            scoreSound.play();
         }
     });
 }

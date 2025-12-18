@@ -63,9 +63,13 @@ const POWERUP_TYPES = {
 };
 
 // ====== SOUNDS ======
-const breakSound = new Audio("Sounds/break.wav");
-const loseSound = new Audio("Sounds/lose.wav");
-const paddleSound = new Audio("Sounds/paddle.wav");
+const breakSound = new Audio("../Sounds/break.wav");
+const loseSound = new Audio("../Sounds/lose.wav");
+const paddleSound = new Audio("../Sounds/paddle.wav");
+const powerUpSound = new Audio("../Sounds/powerup.wav");
+const levelCompleteSound = new Audio("../Sounds/levelcomplete.wav");
+const gameStartSound = new Audio("../Sounds/gamestart.wav");
+const gameOverSound = new Audio("../Sounds/gameover.wav");
 
 // ====== INPUT: KEYBOARD ======
 document.addEventListener("keydown", (e) => {
@@ -474,6 +478,9 @@ function updatePowerUps() {
             pu.y - pu.height / 2 < paddleY + PADDLE_HEIGHT
         ) {
             activatePowerUp(pu.type);
+            // Play power-up sound
+            powerUpSound.currentTime = 0;
+            powerUpSound.play();
             powerUps.splice(i, 1);
             continue;
         }
@@ -672,6 +679,9 @@ function checkAllBallsLost() {
                 localStorage.setItem("breakoutHighScore", highScore.toString());
             }
             gameState = "gameOver";
+            // Play game over sound
+            gameOverSound.currentTime = 0;
+            gameOverSound.play();
         } else {
             resetBall();
         }
@@ -696,6 +706,9 @@ function startNewGame() {
     createBricks();
     gameState = "playing";
     paused = false;
+    // Play game start sound
+    gameStartSound.currentTime = 0;
+    gameStartSound.play();
 }
 
 function resetBall() {
@@ -1145,6 +1158,9 @@ function update() {
     // Check level complete
     if (bricksRemaining === 0) {
         gameState = "win";
+        // Play level complete sound
+        levelCompleteSound.currentTime = 0;
+        levelCompleteSound.play();
     }
 }
 

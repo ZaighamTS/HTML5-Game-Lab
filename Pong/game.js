@@ -30,9 +30,11 @@ let gameState = "menu"; // "menu" | "playing" | "gameOver"
 let winnerText = "";
 
 // === Sounds ===
-const paddleSound = new Audio("Sounds/paddle.wav");
-const wallSound   = new Audio("Sounds/wall.wav");
-const scoreSound  = new Audio("Sounds/score.wav");
+const paddleSound = new Audio("../Sounds/paddle.wav");
+const wallSound   = new Audio("../Sounds/wall.wav");
+const scoreSound  = new Audio("../Sounds/score.wav");
+const gameStartSound = new Audio("../Sounds/gamestart.wav");
+const winSound = new Audio("../Sounds/win.wav");
 
 // === INPUT HANDLING (KEYBOARD) ===
 document.addEventListener("keydown", (e) => {
@@ -121,6 +123,9 @@ function startNewGame() {
     resetBall(Math.random() < 0.5 ? 1 : -1);
     gameState = "playing";
     winnerText = "";
+    // Play game start sound
+    gameStartSound.currentTime = 0;
+    gameStartSound.play();
 }
 
 function resetPositions() {
@@ -242,6 +247,9 @@ function checkWinOrReset(direction) {
         gameState = "gameOver";
         winnerText = leftScore >= WIN_SCORE ? "Left Player Wins!" : "Right Player Wins!";
         resetBall(0); // stop the ball
+        // Play win sound
+        winSound.currentTime = 0;
+        winSound.play();
     } else {
         resetBall(direction);
     }

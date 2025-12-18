@@ -34,6 +34,15 @@ let gameState = "menu"; // menu | playing | gameOver
 let gameOverTime = 0; // Timestamp when game over state started
 const GAME_OVER_DELAY = 3; // Seconds to wait before allowing restart
 
+// ===== SOUNDS =====
+const hitSound = new Audio("../Sounds/hit.wav");
+const badSound = new Audio("../Sounds/bad.wav");
+const goldenSound = new Audio("../Sounds/golden.wav");
+const missSound = new Audio("../Sounds/miss.wav");
+const gameStartSound = new Audio("../Sounds/gamestart.wav");
+const gameOverSound = new Audio("../Sounds/gameover.wav");
+const comboSound = new Audio("../Sounds/combo.wav");
+
 // ===== SETUP =====
 function setupHoles() {
     holes = [];
@@ -84,6 +93,10 @@ function handleHit(e) {
                 mole.hitTimer = 0;
                 mole.retreating = true;
                 
+                // Play bad mole sound
+                badSound.currentTime = 0;
+                badSound.play();
+                
                 // Create red particle effects
                 createBadMoleParticles(mole.x, moleDrawY);
                 screenShake = 0.2;
@@ -92,6 +105,9 @@ function handleHit(e) {
                     gameState = "gameOver";
                     if (gameOverTime === 0) {
                         gameOverTime = Date.now();
+                        // Play game over sound
+                        gameOverSound.currentTime = 0;
+                        gameOverSound.play();
                     }
                     return; // Exit function immediately when game ends
                 }
@@ -99,6 +115,7 @@ function handleHit(e) {
             } else if (mole.type === "golden") {
                 // Golden mole clicked - normal mole behavior + add time
                 score += 10 + combo * 2;
+                const oldCombo = combo;
                 combo++;
                 timeLeft += 10; // Add 10 seconds
                 updateDifficulty();
@@ -106,17 +123,38 @@ function handleHit(e) {
                 mole.hitTimer = 0;
                 mole.retreating = true;
                 
+                // Play golden mole sound
+                goldenSound.currentTime = 0;
+                goldenSound.play();
+                
+                // Play combo sound if combo increased
+                if (combo > oldCombo && combo > 1) {
+                    comboSound.currentTime = 0;
+                    comboSound.play();
+                }
+                
                 // Create golden particle effects
                 createGoldenMoleParticles(mole.x, moleDrawY);
                 screenShake = 0.15;
             } else {
                 // Normal mole clicked
                 score += 10 + combo * 2;
+                const oldCombo = combo;
                 combo++;
                 updateDifficulty();
                 mole.hit = true;
                 mole.hitTimer = 0;
                 mole.retreating = true;
+                
+                // Play hit sound
+                hitSound.currentTime = 0;
+                hitSound.play();
+                
+                // Play combo sound if combo increased
+                if (combo > oldCombo && combo > 1) {
+                    comboSound.currentTime = 0;
+                    comboSound.play();
+                }
                 
                 // Create particle effects
                 createHitParticles(mole.x, moleDrawY);
@@ -132,10 +170,17 @@ function handleHit(e) {
         combo = 0;
         resetDifficulty();
         
+        // Play miss sound
+        missSound.currentTime = 0;
+        missSound.play();
+        
         if (timeLeft <= 0) {
             gameState = "gameOver";
             if (gameOverTime === 0) {
                 gameOverTime = Date.now();
+                // Play game over sound
+                gameOverSound.currentTime = 0;
+                gameOverSound.play();
             }
         }
     }
@@ -176,6 +221,9 @@ function startGame() {
     baseDifficultyMultiplier = 1.0;
     comboDifficultyMultiplier = 1.0;
     gameState = "playing";
+    // Play game start sound
+    gameStartSound.currentTime = 0;
+    gameStartSound.play();
 }
 
 // Calculate difficulty multipliers
@@ -257,6 +305,9 @@ function update(dt) {
         gameState = "gameOver";
         if (gameOverTime === 0) {
             gameOverTime = Date.now();
+            // Play game over sound
+            gameOverSound.currentTime = 0;
+            gameOverSound.play();
         }
         return;
     }
@@ -355,6 +406,9 @@ function update(dt) {
                             gameState = "gameOver";
                             if (gameOverTime === 0) {
                                 gameOverTime = Date.now();
+                                // Play game over sound
+                                gameOverSound.currentTime = 0;
+                                gameOverSound.play();
                             }
                         }
                     }
