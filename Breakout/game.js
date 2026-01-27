@@ -114,12 +114,13 @@ let particles = [];
 let powerUps = [];
 let balls = []; // For multi-ball power-up
 
-let gameState = "levelSelect"; // "levelSelect" | "menu" | "playing" | "paused" | "gameOver" | "win"
+let gameState = "levelSelect"; // "levelSelect" | "menu" | "playing" | "paused" | "gameEnd"
 let paused = false;
 let selectedLevelIndex = 0; // For level selection menu
 let mouseX = 0;
 let mouseY = 0;
 let animationTime = 0;
+let gameEndWon = false; // Track if game ended with win (true) or loss (false)
 
 // ====== POWER-UP TYPES ======
 const POWERUP_TYPES = {
@@ -155,7 +156,7 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowLeft") leftPressed = true;
 
     if (e.code === "Space") {
-        if (gameState === "menu" || gameState === "gameOver" || gameState === "win") {
+        if (gameState === "menu" || gameState === "gameEnd") {
             gameState = "levelSelect";
         } else if (gameState === "playing" || gameState === "paused") {
             togglePause();
@@ -164,7 +165,7 @@ document.addEventListener("keydown", (e) => {
 
     // Level selection shortcuts
     if (e.key === "1" || e.key === "2" || e.key === "3") {
-        if (gameState === "gameOver" || gameState === "win" || gameState === "menu") {
+        if (gameState === "gameEnd" || gameState === "menu") {
             selectedLevel = parseInt(e.key);
             startNewGame();
         }
@@ -241,37 +242,41 @@ canvas.addEventListener("click", (e) => {
     const mouseY = coords.y;
     
     if (gameState === "levelSelect") {
-        const centerY = GAME_HEIGHT / 2;
-        const buttonWidth = 300;
-        const buttonHeight = 50;
-        const buttonSpacing = 20;
-        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
+        const buttonWidth = 400;
+        const buttonHeight = 60;
+        const buttonSpacing = 25;
+        const totalHeight = (buttonHeight * 3) + (buttonSpacing * 2);
+        const startY = (GAME_HEIGHT - totalHeight) / 2;
+        const startX = (GAME_WIDTH - buttonWidth) / 2;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
-            mouseY >= centerY - 60 && mouseY < centerY - 60 + buttonHeight) {
+            mouseY >= startY && mouseY < startY + buttonHeight) {
             selectedLevel = 1;
             startNewGame();
         }
         // Level 2 button
         else if (mouseX >= startX && mouseX < startX + buttonWidth &&
-                 mouseY >= centerY + buttonSpacing && mouseY < centerY + buttonSpacing + buttonHeight) {
+                 mouseY >= startY + buttonHeight + buttonSpacing && 
+                 mouseY < startY + buttonHeight + buttonSpacing + buttonHeight) {
             selectedLevel = 2;
             startNewGame();
         }
         // Level 3 button
         else if (mouseX >= startX && mouseX < startX + buttonWidth &&
-                 mouseY >= centerY + (buttonHeight + buttonSpacing) * 2 && mouseY < centerY + (buttonHeight + buttonSpacing) * 2 + buttonHeight) {
+                 mouseY >= startY + (buttonHeight + buttonSpacing) * 2 && 
+                 mouseY < startY + (buttonHeight + buttonSpacing) * 2 + buttonHeight) {
             selectedLevel = 3;
             startNewGame();
         }
-    } else if (gameState === "gameOver" || gameState === "win") {
+    } else if (gameState === "gameEnd") {
         // Button areas for level selection (must match draw function positions)
-        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
-        const buttonHeight = 40;
-        const buttonSpacing = 50;
-        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const buttonHeight = 45;
+        const buttonSpacing = 20;
+        const totalWidth = (buttonWidth * 3) + (buttonSpacing * 2);
+        const startX = (GAME_WIDTH - totalWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 30;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -280,20 +285,23 @@ canvas.addEventListener("click", (e) => {
             startNewGame();
         }
         // Level 2 button
-        else if (mouseX >= startX + buttonWidth + buttonSpacing && mouseX < startX + buttonWidth * 2 + buttonSpacing &&
+        else if (mouseX >= startX + buttonWidth + buttonSpacing && 
+                 mouseX < startX + buttonWidth * 2 + buttonSpacing &&
                  mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
             selectedLevel = 2;
             startNewGame();
         }
         // Level 3 button
-        else if (mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
+        else if (mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && 
+                 mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
                  mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
             selectedLevel = 3;
             startNewGame();
         }
         // Return to menu button
         else if (mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
-                 mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20) {
+                 mouseY >= buttonY + buttonHeight + buttonSpacing && 
+                 mouseY < buttonY + buttonHeight * 2 + buttonSpacing) {
             gameState = "levelSelect";
         }
     }
@@ -319,37 +327,41 @@ canvas.addEventListener("touchstart", (e) => {
     // Handle button clicks
     e.preventDefault();
     if (gameState === "levelSelect") {
-        const centerY = GAME_HEIGHT / 2;
-        const buttonWidth = 300;
-        const buttonHeight = 50;
-        const buttonSpacing = 20;
-        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
+        const buttonWidth = 400;
+        const buttonHeight = 60;
+        const buttonSpacing = 25;
+        const totalHeight = (buttonHeight * 3) + (buttonSpacing * 2);
+        const startY = (GAME_HEIGHT - totalHeight) / 2;
+        const startX = (GAME_WIDTH - buttonWidth) / 2;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
-            mouseY >= centerY - 60 && mouseY < centerY - 60 + buttonHeight) {
+            mouseY >= startY && mouseY < startY + buttonHeight) {
             selectedLevel = 1;
             startNewGame();
         }
         // Level 2 button
         else if (mouseX >= startX && mouseX < startX + buttonWidth &&
-                 mouseY >= centerY + buttonSpacing && mouseY < centerY + buttonSpacing + buttonHeight) {
+                 mouseY >= startY + buttonHeight + buttonSpacing && 
+                 mouseY < startY + buttonHeight + buttonSpacing + buttonHeight) {
             selectedLevel = 2;
             startNewGame();
         }
         // Level 3 button
         else if (mouseX >= startX && mouseX < startX + buttonWidth &&
-                 mouseY >= centerY + (buttonHeight + buttonSpacing) * 2 && mouseY < centerY + (buttonHeight + buttonSpacing) * 2 + buttonHeight) {
+                 mouseY >= startY + (buttonHeight + buttonSpacing) * 2 && 
+                 mouseY < startY + (buttonHeight + buttonSpacing) * 2 + buttonHeight) {
             selectedLevel = 3;
             startNewGame();
         }
-    } else if (gameState === "gameOver" || gameState === "win") {
+    } else if (gameState === "gameEnd") {
         // Button areas for level selection (must match draw function positions)
-        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
-        const buttonHeight = 40;
-        const buttonSpacing = 50;
-        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const buttonHeight = 45;
+        const buttonSpacing = 20;
+        const totalWidth = (buttonWidth * 3) + (buttonSpacing * 2);
+        const startX = (GAME_WIDTH - totalWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 30;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -358,20 +370,23 @@ canvas.addEventListener("touchstart", (e) => {
             startNewGame();
         }
         // Level 2 button
-        else if (mouseX >= startX + buttonWidth + buttonSpacing && mouseX < startX + buttonWidth * 2 + buttonSpacing &&
+        else if (mouseX >= startX + buttonWidth + buttonSpacing && 
+                 mouseX < startX + buttonWidth * 2 + buttonSpacing &&
                  mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
             selectedLevel = 2;
             startNewGame();
         }
         // Level 3 button
-        else if (mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
+        else if (mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && 
+                 mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
                  mouseY >= buttonY && mouseY < buttonY + buttonHeight) {
             selectedLevel = 3;
             startNewGame();
         }
         // Return to menu button
         else if (mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
-                 mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20) {
+                 mouseY >= buttonY + buttonHeight + buttonSpacing && 
+                 mouseY < buttonY + buttonHeight * 2 + buttonSpacing) {
             gameState = "levelSelect";
         }
     }
@@ -526,7 +541,8 @@ function createPowerUp(x, y) {
             velY: 2,
             type: type,
             width: 30,
-            height: 20
+            height: 20,
+            spawnTime: animationTime // Track when this power-up was created for animation
         });
     }
 }
@@ -560,9 +576,22 @@ function updatePowerUps() {
 
 function activatePowerUp(type) {
     if (type === POWERUP_TYPES.WIDE_PADDLE) {
+        // Store the center position before changing width
+        const paddleCenter = paddleX + currentPaddleWidth / 2;
+        // Update width
         currentPaddleWidth = PADDLE_WIDTH_WIDE;
+        // Adjust paddleX to keep the center position the same (expand from both sides)
+        paddleX = paddleCenter - currentPaddleWidth / 2;
+        clampPaddle(); // Ensure paddle stays within bounds
+        
         setTimeout(() => {
+            // Store the center position before changing width back
+            const paddleCenter = paddleX + currentPaddleWidth / 2;
+            // Update width back to normal
             currentPaddleWidth = PADDLE_WIDTH;
+            // Adjust paddleX to keep the center position the same (contract from both sides)
+            paddleX = paddleCenter - currentPaddleWidth / 2;
+            clampPaddle(); // Ensure paddle stays within bounds
         }, 10000); // 10 seconds
     } else if (type === POWERUP_TYPES.MULTI_BALL) {
         // Multiply all existing balls (main ball + multi-balls)
@@ -616,16 +645,42 @@ function activatePowerUp(type) {
 
 function drawPowerUps() {
     for (const pu of powerUps) {
+        // Calculate animation time since spawn (for pulsing animation)
+        const timeSinceSpawn = animationTime - (pu.spawnTime || animationTime);
+        // Create a smooth ease-in-out pulse animation (expands and contracts from center)
+        // Using sine wave for smooth oscillation, with ease-in-out feel
+        const pulsePhase = timeSinceSpawn * 4; // Speed of animation
+        const pulseScale = 1 + Math.sin(pulsePhase) * 0.15; // Scale between 0.85 and 1.15
+        
+        // Calculate animated dimensions (expand/contract from center)
+        const animatedWidth = pu.width * pulseScale;
+        const animatedHeight = pu.height * pulseScale;
+        
+        // Draw powerup box with crisp rendering - centered expansion
+        const x = Math.round(pu.x - animatedWidth / 2);
+        const y = Math.round(pu.y - animatedHeight / 2);
+        const width = Math.round(animatedWidth);
+        const height = Math.round(animatedHeight);
+        
         ctx.fillStyle = "#8b5cf6"; // Purple
-        ctx.fillRect(pu.x - pu.width / 2, pu.y - pu.height / 2, pu.width, pu.height);
+        ctx.fillRect(x, y, width, height);
+        
+        // Draw border with slight glow effect based on pulse
+        const glowIntensity = (pulseScale - 1) * 2; // Normalize to 0-0.3
+        ctx.strokeStyle = `rgba(167, 139, 250, ${0.8 + glowIntensity})`;
+        ctx.lineWidth = 1 + glowIntensity;
+        ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
+        
+        // Draw text - crisp rendering (text stays same size, box animates around it)
         ctx.fillStyle = "#fff";
-        ctx.font = "12px Arial";
+        ctx.font = "bold 14px Arial";
         ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         let symbol = "?";
         if (pu.type === POWERUP_TYPES.WIDE_PADDLE) symbol = "W";
         else if (pu.type === POWERUP_TYPES.MULTI_BALL) symbol = "M";
         else if (pu.type === POWERUP_TYPES.SLOW_BALL) symbol = "S";
-        ctx.fillText(symbol, pu.x, pu.y + 4);
+        ctx.fillText(symbol, Math.round(pu.x), Math.round(pu.y));
     }
 }
 
@@ -752,7 +807,8 @@ function checkAllBallsLost() {
                     }
                 }
             }
-            gameState = "gameOver";
+            gameEndWon = false;
+            gameState = "gameEnd";
             // Play game over sound
             gameOverSound.currentTime = 0;
             gameOverSound.play();
@@ -1231,7 +1287,8 @@ function update() {
 
     // Check level complete
     if (bricksRemaining === 0) {
-        gameState = "win";
+        gameEndWon = true;
+        gameState = "gameEnd";
         // Play level complete sound
         levelCompleteSound.currentTime = 0;
         levelCompleteSound.play();
@@ -1284,25 +1341,47 @@ function draw() {
 
     // Level selection menu
     if (gameState === "levelSelect") {
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "40px Arial";
+        // Enable crisp text rendering
+        ctx.textBaseline = "middle";
         ctx.textAlign = "center";
-        ctx.fillText("SELECT LEVEL", Math.round(GAME_WIDTH / 2), 100);
         
-        const centerY = GAME_HEIGHT / 2;
-        const buttonWidth = 300;
-        const buttonHeight = 50;
-        const buttonSpacing = 20;
-        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
+        // Title - crisp rendering
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "bold 48px Arial";
+        // Use Math.round for pixel-perfect alignment
+        ctx.fillText("SELECT LEVEL", Math.round(GAME_WIDTH / 2), Math.round(80));
         
-        // Pulse animation
-        const pulse = Math.sin(animationTime * 3) * 0.05 + 1;
+        // Button configuration - evenly spaced
+        const buttonWidth = 400;
+        const buttonHeight = 60;
+        const buttonSpacing = 25; // Consistent spacing between buttons
+        const totalHeight = (buttonHeight * 3) + (buttonSpacing * 2); // Total height of all buttons + spacing
+        const startY = (GAME_HEIGHT - totalHeight) / 2; // Center the button group vertically
+        const startX = (GAME_WIDTH - buttonWidth) / 2; // Center horizontally
         
-        // Draw buttons with hover effects
+        // Define buttons with consistent spacing
         const buttons = [
-            { y: centerY - 60, text: "1. Rectangular Bricks (5x10)", color: "#38bdf8", index: 0 },
-            { y: centerY + buttonSpacing, text: "2. Triangular Bricks", color: "#22c55e", index: 1 },
-            { y: centerY + (buttonHeight + buttonSpacing) * 2, text: "3. Circular Bricks", color: "#eab308", index: 2 }
+            { 
+                y: startY, 
+                text: "1. Rectangular Bricks", 
+                subtitle: "5 rows × 10 columns",
+                color: "#38bdf8", 
+                index: 0 
+            },
+            { 
+                y: startY + buttonHeight + buttonSpacing, 
+                text: "2. Triangular Bricks", 
+                subtitle: "Geometric patterns",
+                color: "#22c55e", 
+                index: 1 
+            },
+            { 
+                y: startY + (buttonHeight + buttonSpacing) * 2, 
+                text: "3. Circular Bricks", 
+                subtitle: "Concentric circles",
+                color: "#eab308", 
+                index: 2 
+            }
         ];
         
         buttons.forEach((btn, idx) => {
@@ -1310,49 +1389,67 @@ function draw() {
             const isHovered = mouseX >= startX && mouseX < startX + buttonWidth &&
                              mouseY >= btn.y && mouseY < btn.y + buttonHeight;
             
-            // Calculate glow intensity
-            const glowIntensity = isSelected ? 0.8 : (isHovered ? 0.5 : 0.2);
-            const scale = isSelected ? 1.05 : (isHovered ? 1.02 : 1.0);
-            const offsetY = isSelected ? -2 : (isHovered ? -1 : 0);
+            // Calculate effects
+            const glowIntensity = isSelected ? 0.9 : (isHovered ? 0.6 : 0.3);
+            const scale = isSelected ? 1.03 : (isHovered ? 1.01 : 1.0);
+            const scaledWidth = buttonWidth * scale;
+            const scaledHeight = buttonHeight * scale;
+            // Use Math.round for pixel-perfect alignment
+            const scaledX = Math.round(startX - (scaledWidth - buttonWidth) / 2);
+            const scaledY = Math.round(btn.y - (scaledHeight - buttonHeight) / 2);
+            const scaledWidthRounded = Math.round(scaledWidth);
+            const scaledHeightRounded = Math.round(scaledHeight);
             
             // Draw glow shadow
-            const shadowBlur = 20 + glowIntensity * 15;
-            ctx.shadowBlur = shadowBlur;
+            ctx.shadowBlur = 15 + glowIntensity * 20;
             ctx.shadowColor = btn.color;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
             
-            // Draw button with gradient
-            const gradient = ctx.createLinearGradient(startX, btn.y, startX + buttonWidth, btn.y + buttonHeight);
+            // Draw button background with gradient
+            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidthRounded, scaledY + scaledHeightRounded);
             if (isSelected || isHovered) {
                 gradient.addColorStop(0, btn.color);
-                gradient.addColorStop(1, adjustBrightness(btn.color, -20));
+                gradient.addColorStop(1, adjustBrightness(btn.color, -25));
             } else {
-                gradient.addColorStop(0, adjustBrightness(btn.color, -40));
-                gradient.addColorStop(1, adjustBrightness(btn.color, -60));
+                gradient.addColorStop(0, adjustBrightness(btn.color, -50));
+                gradient.addColorStop(1, adjustBrightness(btn.color, -70));
             }
             
             ctx.fillStyle = gradient;
-            ctx.fillRect(startX, btn.y + offsetY, buttonWidth * scale, buttonHeight);
+            ctx.fillRect(scaledX, scaledY, scaledWidthRounded, scaledHeightRounded);
             
             // Reset shadow
             ctx.shadowBlur = 0;
             
-            // Draw border
-            ctx.strokeStyle = isSelected || isHovered ? btn.color : "rgba(148, 163, 184, 0.3)";
-            ctx.lineWidth = isSelected ? 2 : 1;
-            ctx.strokeRect(startX, btn.y + offsetY, buttonWidth * scale, buttonHeight);
+            // Draw border - use half-pixel offset for crisp 1px borders
+            ctx.strokeStyle = isSelected || isHovered ? btn.color : "rgba(148, 163, 184, 0.4)";
+            ctx.lineWidth = isSelected ? 3 : (isHovered ? 2 : 1);
+            // Adjust for crisp borders (half-pixel offset for odd line widths)
+            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, scaledWidthRounded - borderOffset * 2, scaledHeightRounded - borderOffset * 2);
             
-            // Draw text
-            ctx.fillStyle = "#fff";
-            ctx.font = "24px Arial";
-            ctx.fillText(btn.text, Math.round(GAME_WIDTH / 2), Math.round(btn.y + offsetY + 35));
+            // Draw text - crisp rendering with pixel-perfect alignment
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 22px Arial";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            // Use Math.round for pixel-perfect alignment to avoid blurriness
+            ctx.fillText(btn.text, Math.round(GAME_WIDTH / 2), Math.round(btn.y + buttonHeight / 2 - 8));
+            
+            // Draw subtitle
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.font = "16px Arial";
+            ctx.fillText(btn.subtitle, Math.round(GAME_WIDTH / 2), Math.round(btn.y + buttonHeight / 2 + 12));
         });
         
-        ctx.fillStyle = "#888";
+        // Instructions - crisp rendering
+        ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
         ctx.font = "18px Arial";
-        ctx.fillText("Use Arrow Keys to select, SPACE/ENTER to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 50));
-        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 25));
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "center";
+        ctx.fillText("Use Arrow Keys to select, SPACE/ENTER to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 35));
+        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 10));
         return;
     }
 
@@ -1378,15 +1475,16 @@ function draw() {
     ctx.fillStyle = "#38bdf8";
     ctx.fill();
 
-    // HUD: score, lives, level, high score
+    // HUD: score, lives, level, high score - crisp rendering
     ctx.fillStyle = "#e5e7eb";
     ctx.font = "18px Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`Score: ${score}`, 20, 24);
-    ctx.fillText(`Level: ${selectedLevel}`, 20, 48);
+    ctx.textBaseline = "top";
+    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(24));
+    ctx.fillText(`Level: ${selectedLevel}`, Math.round(20), Math.round(48));
     ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives}`, Math.round(GAME_WIDTH - 20), 24);
-    ctx.fillText(`High Score: ${highScore}`, Math.round(GAME_WIDTH - 20), 48);
+    ctx.fillText(`Lives: ${lives}`, Math.round(GAME_WIDTH - 20), Math.round(24));
+    ctx.fillText(`High Score: ${highScore}`, Math.round(GAME_WIDTH - 20), Math.round(48));
 
     // State overlays
     ctx.textAlign = "center";
@@ -1405,88 +1503,120 @@ function draw() {
         ctx.fillText("PAUSED", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
         ctx.font = "22px Arial";
         ctx.fillText("Press SPACE or P to Resume", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 25));
-    } else if (gameState === "gameOver") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    } else if (gameState === "gameEnd") {
+        // Unified game end panel for both win and lose
+        ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "36px Arial";
-        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 80));
-        ctx.font = "22px Arial";
-        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
         
-        // Level selection buttons
-        const buttonY = GAME_HEIGHT / 2 + 20;
+        // Enable crisp text rendering
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        
+        // Title - different text based on win/lose
+        ctx.fillStyle = gameEndWon ? "#22c55e" : "#ef4444";
+        ctx.font = "bold 48px Arial";
+        const titleText = gameEndWon ? `Level ${selectedLevel} Complete!` : "Game Over";
+        ctx.fillText(titleText, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
+        
+        // Score information - crisp rendering
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "24px Arial";
+        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
+        
+        // High score if applicable
+        if (score === highScore && score > 0) {
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "20px Arial";
+            ctx.fillText("New High Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 20));
+        }
+        
+        // Level selection buttons - evenly spaced and aligned
         const buttonWidth = 200;
-        const buttonHeight = 40;
-        const buttonSpacing = 50;
-        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const buttonHeight = 45;
+        const buttonSpacing = 20;
+        const totalWidth = (buttonWidth * 3) + (buttonSpacing * 2);
+        const startX = (GAME_WIDTH - totalWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 30;
         
         // Check hover states
         const level1Hovered = mouseX >= startX && mouseX < startX + buttonWidth &&
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level2Hovered = mouseX >= startX + buttonWidth + buttonSpacing && mouseX < startX + buttonWidth * 2 + buttonSpacing &&
+        const level2Hovered = mouseX >= startX + buttonWidth + buttonSpacing && 
+                              mouseX < startX + buttonWidth * 2 + buttonSpacing &&
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const menuHovered = mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
-                            mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20;
-        
-        // Level 1 button
-        drawAnimatedButton(ctx, startX, buttonY, buttonWidth, buttonHeight, "Level 1", "#38bdf8", false, level1Hovered, animationTime);
-        
-        // Level 2 button
-        drawAnimatedButton(ctx, startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight, "Level 2", "#22c55e", false, level2Hovered, animationTime);
-        
-        // Level 3 button
-        drawAnimatedButton(ctx, startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight, "Level 3", "#eab308", false, level3Hovered, animationTime);
-        
-        // Return to menu button
-        drawAnimatedButton(ctx, GAME_WIDTH / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#666", false, menuHovered, animationTime);
-        
-        ctx.fillStyle = "#888";
-        ctx.font = "16px Arial";
-        ctx.fillText("Press 1, 2, or 3 to select level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
-    } else if (gameState === "win") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "36px Arial";
-        ctx.fillText(`Level ${selectedLevel} Complete!`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 80));
-        ctx.font = "22px Arial";
-        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
-        
-        // Level selection buttons
-        const buttonY = GAME_HEIGHT / 2 + 20;
-        const buttonWidth = 200;
-        const buttonHeight = 40;
-        const buttonSpacing = 50;
-        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
-        
-        // Check hover states
-        const level1Hovered = mouseX >= startX && mouseX < startX + buttonWidth &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level2Hovered = mouseX >= startX + buttonWidth + buttonSpacing && mouseX < startX + buttonWidth * 2 + buttonSpacing &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
+        const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && 
+                              mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
         const menuHovered = mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
-                            mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20;
+                            mouseY >= buttonY + buttonHeight + buttonSpacing && 
+                            mouseY < buttonY + buttonHeight * 2 + buttonSpacing;
         
-        // Level 1 button
-        drawAnimatedButton(ctx, startX, buttonY, buttonWidth, buttonHeight, "Level 1", "#38bdf8", false, level1Hovered, animationTime);
+        // Draw buttons with crisp rendering
+        const buttons = [
+            { x: startX, text: "Level 1", color: "#38bdf8", hovered: level1Hovered },
+            { x: startX + buttonWidth + buttonSpacing, text: "Level 2", color: "#22c55e", hovered: level2Hovered },
+            { x: startX + (buttonWidth + buttonSpacing) * 2, text: "Level 3", color: "#eab308", hovered: level3Hovered }
+        ];
         
-        // Level 2 button
-        drawAnimatedButton(ctx, startX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight, "Level 2", "#22c55e", false, level2Hovered, animationTime);
+        buttons.forEach(btn => {
+            const scale = btn.hovered ? 1.02 : 1.0;
+            const scaledWidth = Math.round(buttonWidth * scale);
+            const scaledHeight = Math.round(buttonHeight * scale);
+            const scaledX = Math.round(btn.x - (scaledWidth - buttonWidth) / 2);
+            const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
+            
+            // Draw button background
+            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
+            gradient.addColorStop(0, btn.hovered ? btn.color : adjustBrightness(btn.color, -40));
+            gradient.addColorStop(1, btn.hovered ? adjustBrightness(btn.color, -20) : adjustBrightness(btn.color, -60));
+            ctx.fillStyle = gradient;
+            ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+            
+            // Draw border
+            ctx.strokeStyle = btn.hovered ? btn.color : "rgba(148, 163, 184, 0.4)";
+            ctx.lineWidth = btn.hovered ? 2 : 1;
+            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
+            
+            // Draw text - crisp rendering
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 18px Arial";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillText(btn.text, Math.round(btn.x + buttonWidth / 2), Math.round(buttonY + buttonHeight / 2));
+        });
         
-        // Level 3 button
-        drawAnimatedButton(ctx, startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight, "Level 3", "#eab308", false, level3Hovered, animationTime);
+        // Menu button
+        const menuX = Math.round(GAME_WIDTH / 2 - 100);
+        const menuY = Math.round(buttonY + buttonHeight + buttonSpacing);
+        const menuScale = menuHovered ? 1.02 : 1.0;
+        const menuScaledWidth = Math.round(200 * menuScale);
+        const menuScaledHeight = Math.round(buttonHeight * menuScale);
+        const menuScaledX = Math.round(menuX - (menuScaledWidth - 200) / 2);
+        const menuScaledY = Math.round(menuY - (menuScaledHeight - buttonHeight) / 2);
         
-        // Return to menu button
-        drawAnimatedButton(ctx, GAME_WIDTH / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#22c55e", false, menuHovered, animationTime);
+        const menuGradient = ctx.createLinearGradient(menuScaledX, menuScaledY, menuScaledX + menuScaledWidth, menuScaledY + menuScaledHeight);
+        menuGradient.addColorStop(0, menuHovered ? "#666" : "#444");
+        menuGradient.addColorStop(1, menuHovered ? "#555" : "#333");
+        ctx.fillStyle = menuGradient;
+        ctx.fillRect(menuScaledX, menuScaledY, menuScaledWidth, menuScaledHeight);
         
-        ctx.fillStyle = "#888";
-        ctx.font = "16px Arial";
+        ctx.strokeStyle = menuHovered ? "#888" : "rgba(148, 163, 184, 0.3)";
+        ctx.lineWidth = menuHovered ? 2 : 1;
+        const menuBorderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+        ctx.strokeRect(menuScaledX + menuBorderOffset, menuScaledY + menuBorderOffset, 
+                      menuScaledWidth - menuBorderOffset * 2, menuScaledHeight - menuBorderOffset * 2);
+        
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px Arial";
+        ctx.fillText("Menu", Math.round(GAME_WIDTH / 2), Math.round(menuY + buttonHeight / 2));
+        
+        // Instructions - crisp rendering
+        ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
+        ctx.font = "18px Arial";
+        ctx.textBaseline = "bottom";
         ctx.fillText("Press 1, 2, or 3 to select level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
+        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 5));
     }
 }
 

@@ -106,9 +106,15 @@ let wingTime = 0;   // used for wing flapping animation
 let lastTime = 0;
 let spawnTimer = 0;
 let parallaxOffset = 0; // global parallax scroll offset
+let roadOffset = 0; // road stripe scroll offset (only updates when playing)
+let animationTime = 0; // for UI animations
 
 // input flags
 let flapQueued = false;
+
+// mouse tracking for hover effects
+let mouseX = 0;
+let mouseY = 0;
 
 // ====== SOUNDS ======
 const flapSound = new Audio("../Sounds/flap.wav");
@@ -146,6 +152,15 @@ canvas.addEventListener("touchstart", (e) => {
     queueFlap();
 }, { passive: false });
 
+// Track mouse position for hover effects
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = GAME_WIDTH / rect.width;
+    const scaleY = GAME_HEIGHT / rect.height;
+    mouseX = (e.clientX - rect.left) * scaleX;
+    mouseY = (e.clientY - rect.top) * scaleY;
+});
+
 // ====== GAME CONTROL ======
 function startGame() {
     gameState = "playing";
@@ -162,6 +177,7 @@ function resetGame() {
     score = 0;
     spawnTimer = 0;
     parallaxOffset = 0;
+    roadOffset = 0;
     initializeParallaxLayers();
 }
 
@@ -294,30 +310,33 @@ function update(deltaTime) {
     // Remove off-screen pipes
     pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > -100);
     
-    // Update parallax layers
+    // Update clouds (always move, even when gameOver)
+    const cloudMove = PARALLAX_SPEED_CLOUDS * deltaTime;
+    clouds.forEach(cloud => {
+        cloud.x -= cloudMove;
+    });
+    // Remove off-screen clouds and add new ones
+    clouds = clouds.filter(cloud => cloud.x > -200);
+    // Find rightmost cloud position
+    let maxCloudX = clouds.length > 0 ? Math.max(...clouds.map(c => c.x)) : GAME_WIDTH - 100;
+    // Add new clouds as needed
+    while (maxCloudX < GAME_WIDTH + 300) {
+        const newCloud = {
+            x: maxCloudX + CLOUD_SPACING + Math.random() * 100,
+            y: 50 + Math.random() * 200,
+            size: 30 + Math.random() * 40,
+            type: Math.floor(Math.random() * 3)
+        };
+        clouds.push(newCloud);
+        maxCloudX = newCloud.x;
+    }
+    
+    // Update parallax layers (only when playing)
     if (gameState === "playing") {
         parallaxOffset += PIPE_SPEED * deltaTime;
         
-        // Update clouds (slowest)
-        const cloudMove = PARALLAX_SPEED_CLOUDS * deltaTime;
-        clouds.forEach(cloud => {
-            cloud.x -= cloudMove;
-        });
-        // Remove off-screen clouds and add new ones
-        clouds = clouds.filter(cloud => cloud.x > -200);
-        // Find rightmost cloud position
-        let maxCloudX = clouds.length > 0 ? Math.max(...clouds.map(c => c.x)) : GAME_WIDTH - 100;
-        // Add new clouds as needed
-        while (maxCloudX < GAME_WIDTH + 300) {
-            const newCloud = {
-                x: maxCloudX + CLOUD_SPACING + Math.random() * 100,
-                y: 50 + Math.random() * 200,
-                size: 30 + Math.random() * 40,
-                type: Math.floor(Math.random() * 3)
-            };
-            clouds.push(newCloud);
-            maxCloudX = newCloud.x;
-        }
+        // Update road offset (only when playing)
+        roadOffset += PIPE_SPEED * deltaTime;
         
         // Update far mountains
         const farMountainMove = PARALLAX_SPEED_FAR_MOUNTAINS * deltaTime;
@@ -530,11 +549,12 @@ function drawGround() {
     ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, floorY, GAME_WIDTH, FLOOR_HEIGHT);
 
-    // scrolling stripes
+    // scrolling stripes (only scroll when playing - roadOffset is frozen when gameOver)
     ctx.fillStyle = "#1e293b";
     const stripeWidth = 40;
+    const stripeOffset = roadOffset % (stripeWidth * 2);
     for (let x = 0; x < GAME_WIDTH + stripeWidth; x += stripeWidth * 2) {
-        ctx.fillRect(x - (Date.now() / 20 % (stripeWidth * 2)), floorY + 10, stripeWidth, 10);
+        ctx.fillRect(x - stripeOffset, floorY + 10, stripeWidth, 10);
     }
 }
 
@@ -722,44 +742,195 @@ function drawBird() {
 
 
 function drawHUD() {
+    // Crisp text rendering for HUD
     ctx.fillStyle = "#e5e7eb";
-    ctx.font = "28px Arial";
+    ctx.font = "bold 28px Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`Score: ${score}`, 20, 40);
+    ctx.textBaseline = "top";
+    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(40));
 
-    ctx.font = "18px Arial";
+    ctx.font = "bold 18px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH - 20), 34);
+    ctx.textBaseline = "top";
+    ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH - 20), Math.round(34));
+}
+
+// Helper function to adjust brightness of a color
+function adjustBrightness(color, amount) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+    const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 function drawOverlay() {
+    // Enable crisp text rendering
+    ctx.textBaseline = "middle";
     ctx.textAlign = "center";
 
     if (gameState === "menu") {
-        ctx.fillStyle = "#0f172a88";
+        // Semi-transparent overlay
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
+        
+        // Title with glow effect
+        const pulse = Math.sin(animationTime * 2) * 0.05 + 1;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#38bdf8";
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Title with glow effect - crisp rendering
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
         ctx.fillStyle = "#e5e7eb";
-        ctx.font = "40px Arial";
-        ctx.fillText("FLAPPY CLONE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
-
-        ctx.font = "22px Arial";
-        ctx.fillText("Tap / Click / Space / ↑ to flap", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2));
-        ctx.fillText("Press to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 40));
+        ctx.font = "bold 52px Arial";
+        ctx.fillText("FLAPPY", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
+        
+        ctx.shadowBlur = 0;
+        ctx.font = "bold 36px Arial";
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillText("CLONE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
+        
+        // Instructions with better styling - crisp rendering
+        ctx.fillStyle = "rgba(229, 231, 235, 0.9)";
+        ctx.font = "20px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Tap / Click / Space / ↑ to flap", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 20));
+        
+        // Start button
+        const buttonWidth = 280;
+        const buttonHeight = 55;
+        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 70;
+        
+        // Check hover
+        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+        
+        const scale = isHovered ? 1.05 : 1.0;
+        const scaledWidth = Math.round(buttonWidth * scale);
+        const scaledHeight = Math.round(buttonHeight * scale);
+        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
+        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
+        
+        // Draw button with gradient
+        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
+        if (isHovered) {
+            gradient.addColorStop(0, "#38bdf8");
+            gradient.addColorStop(1, adjustBrightness("#38bdf8", -25));
+        } else {
+            gradient.addColorStop(0, adjustBrightness("#38bdf8", -40));
+            gradient.addColorStop(1, adjustBrightness("#38bdf8", -60));
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+        
+        // Button border
+        ctx.strokeStyle = isHovered ? "#38bdf8" : "rgba(148, 163, 184, 0.4)";
+        ctx.lineWidth = isHovered ? 3 : 2;
+        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
+                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
+        
+        // Button text - crisp rendering
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 22px Arial";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText("Press to Start", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
     }
 
     if (gameState === "gameOver") {
-        ctx.fillStyle = "#0f172acc";
+        // Semi-transparent overlay
+        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
+        
+        // Title with color based on score
+        const titleColor = score === bestScore && score > 0 ? "#22c55e" : "#ef4444";
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = titleColor;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Title - crisp rendering
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
         ctx.fillStyle = "#e5e7eb";
-        ctx.font = "40px Arial";
-        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
-
-        ctx.font = "24px Arial";
-        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2));
-        ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 34));
-        ctx.fillText("Press or tap to play again", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 70));
+        ctx.font = "bold 48px Arial";
+        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
+        
+        ctx.shadowBlur = 0;
+        
+        // Score display with better styling - crisp rendering
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "bold 28px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
+        
+        // Best score with highlight if it's a new record - crisp rendering
+        if (score === bestScore && score > 0) {
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 24px Arial";
+            ctx.textBaseline = "middle";
+            ctx.fillText("New Best Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
+        }
+        
+        ctx.fillStyle = "rgba(229, 231, 235, 0.8)";
+        ctx.font = "bold 22px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 30));
+        
+        // Play again button
+        const buttonWidth = 300;
+        const buttonHeight = 55;
+        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 90;
+        
+        // Check hover
+        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+        
+        const scale = isHovered ? 1.05 : 1.0;
+        const scaledWidth = Math.round(buttonWidth * scale);
+        const scaledHeight = Math.round(buttonHeight * scale);
+        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
+        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
+        
+        // Draw button with gradient
+        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
+        if (isHovered) {
+            gradient.addColorStop(0, "#22c55e");
+            gradient.addColorStop(1, adjustBrightness("#22c55e", -25));
+        } else {
+            gradient.addColorStop(0, adjustBrightness("#22c55e", -40));
+            gradient.addColorStop(1, adjustBrightness("#22c55e", -60));
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+        
+        // Button border
+        ctx.strokeStyle = isHovered ? "#22c55e" : "rgba(148, 163, 184, 0.4)";
+        ctx.lineWidth = isHovered ? 3 : 2;
+        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
+                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
+        
+        // Button text - crisp rendering
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 22px Arial";
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillText("Play Again", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
+        
+        // Instructions - crisp rendering
+        ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
+        ctx.font = "18px Arial";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("Press or tap to play again", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
     }
 }
 

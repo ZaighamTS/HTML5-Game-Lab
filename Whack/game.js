@@ -45,6 +45,9 @@ let lastTime = 0;
 let gameState = "menu"; // menu | playing | gameOver
 let gameOverTime = 0; // Timestamp when game over state started
 const GAME_OVER_DELAY = 3; // Seconds to wait before allowing restart
+let animationTime = 0; // for UI animations
+let mouseX = 0;
+let mouseY = 0;
 
 // ===== SOUNDS =====
 const hitSound = new Audio("../Sounds/hit.wav");
@@ -441,23 +444,59 @@ function drawBackground() {
     // Calculate ground position based on hole positions (with fallback)
     const groundStartY = holes.length > 0 ? Math.max(holes[0].y - 80, 100) : GAME_HEIGHT * 0.4;
     
-    // Sky gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
-    gradient.addColorStop(0, "#87ceeb");
-    gradient.addColorStop(0.6, "#90EE90");
-    gradient.addColorStop(1, "#8B4513");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    // Improved sky gradient - more realistic sky colors
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, groundStartY);
+    skyGradient.addColorStop(0, "#87CEEB");      // Light sky blue at top
+    skyGradient.addColorStop(0.3, "#B0E0E6");   // Powder blue
+    skyGradient.addColorStop(0.6, "#ADD8E6");   // Light blue
+    skyGradient.addColorStop(0.9, "#98D8C8");   // Mint green (horizon)
+    skyGradient.addColorStop(1, "#90EE90");     // Light green (near ground)
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, GAME_WIDTH, groundStartY);
     
-    // Ground/dirt area
-    ctx.fillStyle = "#8B4513";
+    // Add some subtle clouds for atmosphere
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    // Cloud 1
+    ctx.beginPath();
+    ctx.arc(150, 80, 40, 0, Math.PI * 2);
+    ctx.arc(180, 80, 50, 0, Math.PI * 2);
+    ctx.arc(210, 80, 40, 0, Math.PI * 2);
+    ctx.fill();
+    // Cloud 2
+    ctx.beginPath();
+    ctx.arc(600, 120, 35, 0, Math.PI * 2);
+    ctx.arc(625, 120, 45, 0, Math.PI * 2);
+    ctx.arc(650, 120, 35, 0, Math.PI * 2);
+    ctx.fill();
+    // Cloud 3
+    ctx.beginPath();
+    ctx.arc(750, 60, 30, 0, Math.PI * 2);
+    ctx.arc(770, 60, 40, 0, Math.PI * 2);
+    ctx.arc(790, 60, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // Ground/dirt area with better gradient
+    const groundGradient = ctx.createLinearGradient(0, groundStartY, 0, GAME_HEIGHT);
+    groundGradient.addColorStop(0, "#8B4513");   // Saddle brown
+    groundGradient.addColorStop(0.5, "#654321"); // Dark brown
+    groundGradient.addColorStop(1, "#5C4033");   // Very dark brown
+    ctx.fillStyle = groundGradient;
     ctx.fillRect(0, groundStartY, GAME_WIDTH, GAME_HEIGHT - groundStartY);
     
-    // Grass texture (simple pattern)
+    // Improved grass texture with variation
     ctx.fillStyle = "#7cb342";
-    for (let i = 0; i < GAME_WIDTH; i += 4) {
-        const grassHeight = 3 + Math.sin(i * 0.1) * 2;
-        ctx.fillRect(i, groundStartY, 3, grassHeight);
+    for (let i = 0; i < GAME_WIDTH; i += 3) {
+        const grassHeight = 4 + Math.sin(i * 0.15) * 3 + Math.cos(i * 0.08) * 2;
+        ctx.fillRect(i, groundStartY, 2, grassHeight);
+    }
+    // Add some darker grass patches for texture
+    ctx.fillStyle = "#689F38";
+    for (let i = 0; i < GAME_WIDTH; i += 7) {
+        const grassHeight = 3 + Math.sin(i * 0.2) * 2;
+        ctx.fillRect(i, groundStartY, 2, grassHeight);
     }
 }
 
@@ -525,6 +564,9 @@ function drawSingleMole(activeMole) {
 
     ctx.save();
     
+    // Ensure full opacity for moles (no transparency)
+    ctx.globalAlpha = 1.0;
+    
     const moleY = activeMole.holeY + activeMole.yOffset; // Mole comes from below (positive yOffset = below hole center)
     
     // Clip to hole area only when mole is emerging or retreating (not when fully up)
@@ -547,54 +589,117 @@ function drawSingleMole(activeMole) {
     
     ctx.translate(activeMole.x, moleY);
 
-    // Body shadow
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(0, MOLE_SIZE / 2 + 5, MOLE_SIZE / 2 * 0.9, MOLE_SIZE / 2 * 0.3, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Improved body shadow with blur effect
+    ctx.save();
+    // Create shadow with multiple layers for blur effect
+    for (let i = 0; i < 3; i++) {
+        const shadowAlpha = (0.4 - i * 0.1) / (i + 1);
+        const shadowSize = 1 + i * 2;
+        ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
+        ctx.beginPath();
+        ctx.ellipse(0, MOLE_SIZE / 2 + 8 + i, 
+                   MOLE_SIZE / 2 * 0.9 + shadowSize, 
+                   MOLE_SIZE / 2 * 0.3 + shadowSize * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
 
-    // Body gradient - different colors based on mole type
-    let bodyGradient;
+    // Determine mole colors based on type
+    let bodyBaseColor, bodyDarkColor, bodyLightColor;
     if (activeMole.type === "bad") {
         // Bad mole: red/purple colors
-        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
-        bodyGradient.addColorStop(0, "#dc2626");
-        bodyGradient.addColorStop(0.5, "#991b1b");
-        bodyGradient.addColorStop(1, "#7f1d1d");
+        bodyBaseColor = "#dc2626";
+        bodyDarkColor = "#7f1d1d";
+        bodyLightColor = "#ef4444";
     } else if (activeMole.type === "golden") {
         // Golden mole: bright gold/yellow colors
-        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
-        bodyGradient.addColorStop(0, "#fbbf24");
-        bodyGradient.addColorStop(0.5, "#f59e0b");
-        bodyGradient.addColorStop(1, "#d97706");
+        bodyBaseColor = "#fbbf24";
+        bodyDarkColor = "#d97706";
+        bodyLightColor = "#fef08a";
     } else {
         // Normal mole: brown colors
-        bodyGradient = ctx.createRadialGradient(-10, -15, 0, 0, 0, MOLE_SIZE / 2);
-        bodyGradient.addColorStop(0, "#d97706");
-        bodyGradient.addColorStop(0.5, "#92400e");
-        bodyGradient.addColorStop(1, "#78350f");
+        bodyBaseColor = "#d97706";
+        bodyDarkColor = "#78350f";
+        bodyLightColor = "#f59e0b";
     }
+    
+    // Draw solid opaque base circle FIRST to ensure no transparency
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = bodyBaseColor;
+    ctx.beginPath();
+    ctx.arc(0, 0, MOLE_SIZE / 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw body gradient on top of solid base
+    const bodyGradient = ctx.createRadialGradient(-12, -18, 5, 0, 0, MOLE_SIZE / 2);
+    if (activeMole.type === "bad") {
+        bodyGradient.addColorStop(0, bodyLightColor);
+        bodyGradient.addColorStop(0.3, bodyBaseColor);
+        bodyGradient.addColorStop(0.7, "#991b1b");
+        bodyGradient.addColorStop(1, bodyDarkColor);
+    } else if (activeMole.type === "golden") {
+        bodyGradient.addColorStop(0, bodyLightColor);
+        bodyGradient.addColorStop(0.3, bodyBaseColor);
+        bodyGradient.addColorStop(0.7, "#f59e0b");
+        bodyGradient.addColorStop(1, bodyDarkColor);
+    } else {
+        bodyGradient.addColorStop(0, bodyLightColor);
+        bodyGradient.addColorStop(0.3, bodyBaseColor);
+        bodyGradient.addColorStop(0.7, "#92400e");
+        bodyGradient.addColorStop(1, bodyDarkColor);
+    }
+    
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.arc(0, 0, MOLE_SIZE / 2, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Add darker side shadow for depth (using multiply blend mode for better effect)
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.arc(MOLE_SIZE / 4, MOLE_SIZE / 4, MOLE_SIZE / 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
 
-    // Body highlight
+    // Improved body highlight with multiple layers (using screen blend mode for highlights)
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.arc(-15, -20, MOLE_SIZE / 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Secondary highlight for more realistic lighting
     ctx.fillStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
-    ctx.arc(-12, -15, MOLE_SIZE / 3, 0, Math.PI * 2);
+    ctx.arc(-8, -12, MOLE_SIZE / 4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
 
-    // Nose
-    ctx.fillStyle = "#000";
+    // Improved nose with better shading
+    ctx.globalAlpha = 1.0;
+    const noseGradient = ctx.createRadialGradient(-1, 4, 0, 0, 5, 6);
+    noseGradient.addColorStop(0, "#333");
+    noseGradient.addColorStop(1, "#000");
+    ctx.fillStyle = noseGradient;
     ctx.beginPath();
     ctx.ellipse(0, 5, 6, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     
     // Nose highlight
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.beginPath();
-    ctx.ellipse(-2, 4, 2, 1.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(-2, 4, 2.5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Nose nostrils
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(-2, 6, 1.5, 0, Math.PI * 2);
+    ctx.arc(2, 6, 1.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Eyes - different based on mole type
@@ -670,19 +775,60 @@ function drawSingleMole(activeMole) {
     ctx.arc(0, 12, 8, 0.2, Math.PI - 0.2);
     ctx.stroke();
 
-    // Ears
-    const earSize = 12;
-    ctx.fillStyle = "#78350f";
+    // Improved ears with better shading and detail
+    ctx.globalAlpha = 1.0;
+    const earSize = 14;
+    
+    // Ear base color based on mole type
+    let earColor, earInsideColor;
+    if (activeMole.type === "bad") {
+        earColor = "#991b1b";
+        earInsideColor = "#7f1d1d";
+    } else if (activeMole.type === "golden") {
+        earColor = "#f59e0b";
+        earInsideColor = "#d97706";
+    } else {
+        earColor = "#78350f";
+        earInsideColor = "#92400e";
+    }
+    
+    // Left ear with gradient
+    const leftEarGradient = ctx.createRadialGradient(-25, -20, 0, -25, -20, earSize);
+    leftEarGradient.addColorStop(0, bodyLightColor || "#f59e0b");
+    leftEarGradient.addColorStop(1, earColor);
+    ctx.fillStyle = leftEarGradient;
     ctx.beginPath();
     ctx.arc(-25, -20, earSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right ear with gradient
+    const rightEarGradient = ctx.createRadialGradient(25, -20, 0, 25, -20, earSize);
+    rightEarGradient.addColorStop(0, bodyLightColor || "#f59e0b");
+    rightEarGradient.addColorStop(1, earColor);
+    ctx.fillStyle = rightEarGradient;
+    ctx.beginPath();
     ctx.arc(25, -20, earSize, 0, Math.PI * 2);
     ctx.fill();
     
-    // Ear insides
-    ctx.fillStyle = "#92400e";
+    // Ear shadows for depth
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
     ctx.beginPath();
-    ctx.arc(-25, -20, earSize * 0.6, 0, Math.PI * 2);
-    ctx.arc(25, -20, earSize * 0.6, 0, Math.PI * 2);
+    ctx.arc(-25, -18, earSize * 0.7, 0, Math.PI * 2);
+    ctx.arc(25, -18, earSize * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Ear insides with better color
+    ctx.fillStyle = earInsideColor;
+    ctx.beginPath();
+    ctx.arc(-25, -20, earSize * 0.65, 0, Math.PI * 2);
+    ctx.arc(25, -20, earSize * 0.65, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Ear highlights
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.beginPath();
+    ctx.arc(-23, -22, 3, 0, Math.PI * 2);
+    ctx.arc(27, -22, 3, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
@@ -807,52 +953,203 @@ function drawHUD() {
     }
 }
 
+// Helper function to adjust brightness of a color
+function adjustBrightness(color, amount) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+    const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
 function drawOverlay() {
+    // Enable crisp text rendering
+    ctx.textBaseline = "middle";
     ctx.textAlign = "center";
 
     if (gameState === "menu") {
-        ctx.fillStyle = "#020617cc";
+        // Semi-transparent overlay
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
+        
+        // Title with glow effect - crisp rendering
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = "#d97706";
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
         ctx.fillStyle = "#e5e7eb";
+        ctx.font = "bold 56px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText("WHACK", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
+        
+        ctx.shadowBlur = 0;
+        ctx.font = "bold 40px Arial";
+        ctx.fillStyle = "#d97706";
+        ctx.fillText("A MOLE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
+        
+        // Instructions with better styling - crisp rendering
+        ctx.fillStyle = "rgba(229, 231, 235, 0.9)";
+        ctx.font = "20px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Click / Tap the moles to whack them!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 20));
+        
+        // Start button
+        const buttonWidth = 300;
+        const buttonHeight = 55;
+        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
+        const buttonY = GAME_HEIGHT / 2 + 80;
+        
+        // Check hover
+        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+        
+        const scale = isHovered ? 1.05 : 1.0;
+        const scaledWidth = Math.round(buttonWidth * scale);
+        const scaledHeight = Math.round(buttonHeight * scale);
+        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
+        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
+        
+        // Draw button with gradient (brown/orange theme)
+        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
+        if (isHovered) {
+            gradient.addColorStop(0, "#d97706");
+            gradient.addColorStop(1, adjustBrightness("#d97706", -25));
+        } else {
+            gradient.addColorStop(0, adjustBrightness("#d97706", -40));
+            gradient.addColorStop(1, adjustBrightness("#d97706", -60));
+        }
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+        
+        // Button border
+        ctx.strokeStyle = isHovered ? "#d97706" : "rgba(148, 163, 184, 0.4)";
+        ctx.lineWidth = isHovered ? 3 : 2;
+        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
+                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
+        
+        // Button text - crisp rendering
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 22px Arial";
+        ctx.textBaseline = "middle";
         ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.font = "40px Arial";
-        ctx.fillText("WHACK-A-MOLE", Math.round(GAME_WIDTH / 2), Math.round(200));
-        ctx.font = "22px Arial";
-        ctx.fillText("Click / Tap the mole!", Math.round(GAME_WIDTH / 2), Math.round(250));
-        ctx.fillText("Press to start", Math.round(GAME_WIDTH / 2), Math.round(300));
+        ctx.fillText("Press to Start", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
     }
 
     if (gameState === "gameOver") {
-        ctx.fillStyle = "#020617dd";
+        // Semi-transparent overlay
+        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
         ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        ctx.fillStyle = "#e5e7eb";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.font = "38px Arial";
         
-        // Show different message based on how game ended - pixel-aligned for crisp text
+        // Title with color based on score - crisp rendering
+        const titleColor = score > 0 ? "#d97706" : "#ef4444";
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = titleColor;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "bold 48px Arial";
+        
+        // Show different message based on how game ended
         if (timeLeft <= 0) {
-            ctx.fillText("Time's Up!", Math.round(GAME_WIDTH / 2), Math.round(240));
+            ctx.fillText("Time's Up!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
         } else {
-            ctx.fillText("Game Over!", Math.round(GAME_WIDTH / 2), Math.round(240));
+            ctx.fillText("Game Over!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
         }
         
-        ctx.font = "22px Arial";
-        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(280));
+        ctx.shadowBlur = 0;
         
-        // Show countdown or ready message
+        // Score display with better styling - crisp rendering
+        ctx.fillStyle = "#e5e7eb";
+        ctx.font = "bold 28px Arial";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
+        
+        // Best score display
+        let bestScore = 0;
+        try {
+            bestScore = parseInt(localStorage.getItem("whackBestScore") || "0", 10);
+        } catch (e) {
+            bestScore = 0;
+        }
+        
+        // Check if new best score
         const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
         const timeRemaining = Math.max(0, GAME_OVER_DELAY - timeSinceGameOver);
         
-        if (timeRemaining > 0) {
-            ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`Wait ${Math.ceil(timeRemaining)}s to play again`, Math.round(GAME_WIDTH / 2), Math.round(330));
+        if (score > bestScore && score > 0) {
+            // Save new best score
+            try {
+                localStorage.setItem("whackBestScore", score.toString());
+            } catch (e) {
+                // Ignore
+            }
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 24px Arial";
+            ctx.textBaseline = "middle";
+            ctx.fillText("New Best Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
+        }
+        
+        ctx.fillStyle = "rgba(229, 231, 235, 0.8)";
+        ctx.font = "bold 22px Arial";
+        ctx.textBaseline = "middle";
+        const displayBest = score > bestScore ? score : bestScore;
+        ctx.fillText(`Best: ${displayBest}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 30));
+        
+        // Play again button (only show if countdown is done)
+        if (timeRemaining <= 0) {
+            const buttonWidth = 300;
+            const buttonHeight = 55;
+            const buttonX = (GAME_WIDTH - buttonWidth) / 2;
+            const buttonY = GAME_HEIGHT / 2 + 90;
+            
+            // Check hover
+            const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
+                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
+            
+            const scale = isHovered ? 1.05 : 1.0;
+            const scaledWidth = Math.round(buttonWidth * scale);
+            const scaledHeight = Math.round(buttonHeight * scale);
+            const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
+            const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
+            
+            // Draw button with gradient (brown/orange theme)
+            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
+            if (isHovered) {
+                gradient.addColorStop(0, "#d97706");
+                gradient.addColorStop(1, adjustBrightness("#d97706", -25));
+            } else {
+                gradient.addColorStop(0, adjustBrightness("#d97706", -40));
+                gradient.addColorStop(1, adjustBrightness("#d97706", -60));
+            }
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+            
+            // Button border
+            ctx.strokeStyle = isHovered ? "#d97706" : "rgba(148, 163, 184, 0.4)";
+            ctx.lineWidth = isHovered ? 3 : 2;
+            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
+            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
+                          scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
+            
+            // Button text - crisp rendering
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 22px Arial";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillText("Play Again", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
         } else {
-            ctx.fillStyle = "#e5e7eb";
-            ctx.fillText("Click / Tap to play again", Math.round(GAME_WIDTH / 2), Math.round(330));
+            // Show countdown message
+            ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
+            ctx.font = "18px Arial";
+            ctx.textBaseline = "bottom";
+            ctx.fillText(`Wait ${Math.ceil(timeRemaining)}s to play again`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
         }
     }
 }
@@ -862,6 +1159,9 @@ function gameLoop(timestamp) {
     if (!lastTime) lastTime = timestamp;
     const dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
+    
+    // Update animation time for UI effects
+    animationTime += dt;
 
     update(dt);
 
@@ -881,8 +1181,8 @@ function gameLoop(timestamp) {
     drawHoles();
     // Draw mole with clipping (mole will be masked by hole shape)
     drawMole();
-    // Draw hole rim/edge again on top to cover mole edges
-    //drawHoleRims();
+    // Draw hole rim/edge again on top to cover mole edges and ensure proper masking
+    drawHoleRims();
     drawParticles();
     ctx.restore();
     
