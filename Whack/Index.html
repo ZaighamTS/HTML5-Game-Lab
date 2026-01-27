@@ -51,9 +51,6 @@
             max-height: 100%;
             width: auto;
             height: auto;
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
-            image-rendering: pixelated;
         }
 
         .back-btn {
@@ -91,7 +88,7 @@
         <canvas id="gameCanvas" width="900" height="600"></canvas>
     </div>
     <script>
-        // Responsive canvas scaling with high-DPI support
+        // Responsive canvas scaling with devicePixelRatio for crisp rendering
         function resizeCanvas() {
             const canvas = document.getElementById('gameCanvas');
             const container = document.querySelector('.game-container');
@@ -99,47 +96,46 @@
             const gameHeight = 600; // Original game height
             const aspectRatio = gameWidth / gameHeight;
             
-            // Get device pixel ratio for high-DPI displays
+            // Get device pixel ratio for crisp rendering (handles high-DPI displays)
             const dpr = window.devicePixelRatio || 1;
             
             // Get available space
             const maxWidth = window.innerWidth - 40;  // Account for padding
             const maxHeight = window.innerHeight - 40;
             
-            let newWidth, newHeight;
+            let displayWidth, displayHeight;
             
-            // Calculate dimensions to fit while maintaining aspect ratio
+            // Calculate display dimensions to fit while maintaining aspect ratio
             if (maxWidth / maxHeight > aspectRatio) {
                 // Height is the limiting factor
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
+                displayHeight = maxHeight;
+                displayWidth = displayHeight * aspectRatio;
             } else {
                 // Width is the limiting factor
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
+                displayWidth = maxWidth;
+                displayHeight = displayWidth / aspectRatio;
             }
             
-            // Set canvas display size (CSS)
-            canvas.style.width = newWidth + 'px';
-            canvas.style.height = newHeight + 'px';
+            // Set canvas display size (CSS) - this is what the user sees
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
             
-            // Get device pixel ratio for high-DPI displays
-            const dpr = window.devicePixelRatio || 1;
+            // Set canvas internal resolution (actual pixel dimensions)
+            // Multiply by devicePixelRatio for crisp rendering on high-DPI displays
+            canvas.width = gameWidth * dpr;
+            canvas.height = gameHeight * dpr;
             
-            // Set internal resolution to match display size multiplied by DPR
-            // This prevents blurriness on high-DPI displays
+            // Scale the context to match the game's coordinate system
             const ctx = canvas.getContext('2d');
-            
-            // Set high-DPI internal resolution
-            canvas.width = newWidth * dpr;
-            canvas.height = newHeight * dpr;
-            
-            // Scale context by DPR so coordinates match display pixels
             ctx.scale(dpr, dpr);
             
-            // Store logical dimensions for reference
-            canvas._logicalWidth = newWidth;
-            canvas._logicalHeight = newHeight;
+            // Enable text rendering optimizations for crisp text
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            
+            // Store the scale factor for coordinate transformations
+            canvas._scaleX = displayWidth / gameWidth;
+            canvas._scaleY = displayHeight / gameHeight;
         }
 
         // Lock screen orientation to landscape - AGGRESSIVE MODE
@@ -390,5 +386,19 @@
         })();
     </script>
     <script src="game.js"></script>
+    <script>
+        // Ensure canvas is resized after game.js loads
+        // This guarantees crisp rendering on all devices
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                resizeCanvas();
+                // Re-trigger resize on orientation change
+                window.addEventListener('resize', resizeCanvas);
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(resizeCanvas, 100);
+                });
+            }, 0);
+        });
+    </script>
 </body>
 </html>

@@ -1,6 +1,18 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Logical game dimensions (used for game logic, not actual canvas pixels)
+const GAME_WIDTH = 900;
+const GAME_HEIGHT = 600;
+
+// Optimize text rendering for crisp text
+ctx.textBaseline = 'top';
+ctx.textAlign = 'left';
+// Enable better text rendering
+if (ctx.imageSmoothingEnabled !== undefined) {
+    ctx.imageSmoothingEnabled = true;
+}
+
 // ===== SETTINGS =====
 const GRID_COLS = 3;
 const GRID_ROWS = 3;
@@ -46,8 +58,8 @@ const comboSound = new Audio("../Sounds/combo.wav");
 // ===== SETUP =====
 function setupHoles() {
     holes = [];
-    const offsetX = (canvas.width - GRID_COLS * HOLE_SIZE) / 2;
-    const offsetY = (canvas.height - GRID_ROWS * HOLE_SIZE) / 2 - 20; // Center vertically
+    const offsetX = (GAME_WIDTH - GRID_COLS * HOLE_SIZE) / 2;
+    const offsetY = (GAME_HEIGHT - GRID_ROWS * HOLE_SIZE) / 2 - 20; // Center vertically
 
     for (let r = 0; r < GRID_ROWS; r++) {
         for (let c = 0; c < GRID_COLS; c++) {
@@ -70,8 +82,9 @@ function handleHit(e) {
     if (gameState !== "playing") return;
     
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Transform screen coordinates to game coordinates (logical dimensions)
+    const scaleX = GAME_WIDTH / rect.width;
+    const scaleY = GAME_HEIGHT / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
@@ -426,23 +439,23 @@ function update(dt) {
 // ===== DRAW =====
 function drawBackground() {
     // Calculate ground position based on hole positions (with fallback)
-    const groundStartY = holes.length > 0 ? Math.max(holes[0].y - 80, 100) : canvas.height * 0.4;
+    const groundStartY = holes.length > 0 ? Math.max(holes[0].y - 80, 100) : GAME_HEIGHT * 0.4;
     
     // Sky gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
     gradient.addColorStop(0, "#87ceeb");
     gradient.addColorStop(0.6, "#90EE90");
     gradient.addColorStop(1, "#8B4513");
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     
     // Ground/dirt area
     ctx.fillStyle = "#8B4513";
-    ctx.fillRect(0, groundStartY, canvas.width, canvas.height - groundStartY);
+    ctx.fillRect(0, groundStartY, GAME_WIDTH, GAME_HEIGHT - groundStartY);
     
     // Grass texture (simple pattern)
     ctx.fillStyle = "#7cb342";
-    for (let i = 0; i < canvas.width; i += 4) {
+    for (let i = 0; i < GAME_WIDTH; i += 4) {
         const grassHeight = 3 + Math.sin(i * 0.1) * 2;
         ctx.fillRect(i, groundStartY, 3, grassHeight);
     }
@@ -690,19 +703,22 @@ function drawParticles() {
 function drawHUD() {
     // HUD background (semi-transparent)
     ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fillRect(0, 0, canvas.width, 100);
+    ctx.fillRect(0, 0, GAME_WIDTH, 100);
     
-    // Score
+    // Score - use pixel-aligned coordinates for crisp text
     ctx.fillStyle = "#fff";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "left";
-    ctx.fillText(`Score: ${score}`, 20, 35);
+    ctx.textBaseline = "top";
+    // Round coordinates to avoid sub-pixel rendering
+    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(35));
 
-    // Time
+    // Time - use pixel-aligned coordinates for crisp text
     ctx.textAlign = "right";
+    ctx.textBaseline = "top";
     const timeColor = timeLeft < 10 ? "#ef4444" : "#fff";
     ctx.fillStyle = timeColor;
-    ctx.fillText(`Time: ${Math.ceil(timeLeft)}`, canvas.width - 20, 35);
+    ctx.fillText(`Time: ${Math.ceil(timeLeft)}`, Math.round(GAME_WIDTH - 20), Math.round(35));
 
     // Draw heart icons for lives (hearts only, no text)
     function drawHeart(x, y, size, filled, color) {
@@ -746,7 +762,7 @@ function drawHUD() {
         ctx.restore();
     }
     
-    const heartStartX = canvas.width / 2 - (START_LIVES * 28) / 2; // Center the hearts
+    const heartStartX = GAME_WIDTH / 2 - (START_LIVES * 28) / 2; // Center the hearts
     const heartY = 30;
     const heartSize = 18;
     
@@ -773,12 +789,13 @@ function drawHUD() {
         }
     }
 
-    // Combo display with animation
+    // Combo display with animation - pixel-aligned for crisp text
     if (combo > 1) {
         ctx.textAlign = "center";
+        ctx.textBaseline = "top";
         const comboScale = 1 + Math.sin(Date.now() * 0.01) * 0.1;
         ctx.save();
-        ctx.translate(canvas.width / 2, 75);
+        ctx.translate(Math.round(GAME_WIDTH / 2), Math.round(75));
         ctx.scale(comboScale, comboScale);
         ctx.fillStyle = "#facc15";
         ctx.font = "bold 26px Arial";
@@ -795,32 +812,36 @@ function drawOverlay() {
 
     if (gameState === "menu") {
         ctx.fillStyle = "#020617cc";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
         ctx.fillStyle = "#e5e7eb";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
         ctx.font = "40px Arial";
-        ctx.fillText("WHACK-A-MOLE", canvas.width / 2, 200);
+        ctx.fillText("WHACK-A-MOLE", Math.round(GAME_WIDTH / 2), Math.round(200));
         ctx.font = "22px Arial";
-        ctx.fillText("Click / Tap the mole!", canvas.width / 2, 250);
-        ctx.fillText("Press to start", canvas.width / 2, 300);
+        ctx.fillText("Click / Tap the mole!", Math.round(GAME_WIDTH / 2), Math.round(250));
+        ctx.fillText("Press to start", Math.round(GAME_WIDTH / 2), Math.round(300));
     }
 
     if (gameState === "gameOver") {
         ctx.fillStyle = "#020617dd";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
         ctx.fillStyle = "#e5e7eb";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
         ctx.font = "38px Arial";
         
-        // Show different message based on how game ended
+        // Show different message based on how game ended - pixel-aligned for crisp text
         if (timeLeft <= 0) {
-            ctx.fillText("Time's Up!", canvas.width / 2, 240);
+            ctx.fillText("Time's Up!", Math.round(GAME_WIDTH / 2), Math.round(240));
         } else {
-            ctx.fillText("Game Over!", canvas.width / 2, 240);
+            ctx.fillText("Game Over!", Math.round(GAME_WIDTH / 2), Math.round(240));
         }
         
         ctx.font = "22px Arial";
-        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, 280);
+        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(280));
         
         // Show countdown or ready message
         const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
@@ -828,10 +849,10 @@ function drawOverlay() {
         
         if (timeRemaining > 0) {
             ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`Wait ${Math.ceil(timeRemaining)}s to play again`, canvas.width / 2, 330);
+            ctx.fillText(`Wait ${Math.ceil(timeRemaining)}s to play again`, Math.round(GAME_WIDTH / 2), Math.round(330));
         } else {
             ctx.fillStyle = "#e5e7eb";
-            ctx.fillText("Click / Tap to play again", canvas.width / 2, 330);
+            ctx.fillText("Click / Tap to play again", Math.round(GAME_WIDTH / 2), Math.round(330));
         }
     }
 }
@@ -844,7 +865,7 @@ function gameLoop(timestamp) {
 
     update(dt);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     
     // Apply screen shake
     ctx.save();

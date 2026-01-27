@@ -1,6 +1,63 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Logical game dimensions (used for game logic, not actual canvas pixels)
+// After DPR scaling, canvas.width/height will be these * devicePixelRatio
+const GAME_WIDTH = 480;
+const GAME_HEIGHT = 720;
+
+// Apply device pixel ratio scaling for crisp rendering on high-DPI displays
+// This ensures text and graphics render sharply
+function applyDPRScaling() {
+    // Get the DPR that was set by resizeCanvas, or calculate it
+    const dpr = canvas._dpr || window.devicePixelRatio || 1;
+    
+    // Always ensure the context is properly scaled
+    // The canvas dimensions should be GAME_WIDTH * dpr x GAME_HEIGHT * dpr
+    if (canvas.width === GAME_WIDTH * dpr && canvas.height === GAME_HEIGHT * dpr) {
+        // Canvas is properly sized, ensure context is scaled
+        // Check if scale is already applied (getTransform might not be available in all browsers)
+        let needsScale = true;
+        if (ctx.getTransform) {
+            const currentTransform = ctx.getTransform();
+            // Check if scale is already applied (within small tolerance)
+            if (Math.abs(currentTransform.a - dpr) < 0.01 && Math.abs(currentTransform.d - dpr) < 0.01) {
+                needsScale = false;
+            }
+        }
+        if (needsScale) {
+            // Scale not applied or incorrect, reapply it
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+        }
+    } else if (canvas.width !== GAME_WIDTH || canvas.height !== GAME_HEIGHT) {
+        // Canvas has been resized but might not have DPR applied yet
+        // Calculate the scale that was applied
+        const scaleX = canvas.width / GAME_WIDTH;
+        const scaleY = canvas.height / GAME_HEIGHT;
+        // Reset transform and apply scale
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(scaleX, scaleY);
+    }
+    
+    // Optimize text rendering for crisp text
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    
+    // Enable better text rendering (but keep image smoothing for graphics)
+    if (ctx.imageSmoothingEnabled !== undefined) {
+        ctx.imageSmoothingEnabled = true;
+    }
+}
+
+// Apply scaling immediately
+applyDPRScaling();
+
+// Expose refresh function for resizeCanvas to call
+window.refreshGameContext = function() {
+    applyDPRScaling();
+};
+
 // ====== SETTINGS ======
 const GRAVITY = 1300;          // pixels per second^2
 const FLAP_STRENGTH = -380;    // initial upward velocity on flap
@@ -21,8 +78,8 @@ const CLOUD_SPACING = 200;
 const MOUNTAIN_SPACING = 250;
 
 // ====== GAME STATE ======
-let birdX = canvas.width * 0.25;
-let birdY = canvas.height / 2;
+let birdX = GAME_WIDTH * 0.25;
+let birdY = GAME_HEIGHT / 2;
 let birdVelY = 0;
 
 let pipes = []; // { x, gapY, passed }
@@ -98,8 +155,8 @@ function startGame() {
 }
 
 function resetGame() {
-    birdX = canvas.width * 0.25;
-    birdY = canvas.height / 2;
+    birdX = GAME_WIDTH * 0.25;
+    birdY = GAME_HEIGHT / 2;
     birdVelY = 0;
     pipes = [];
     score = 0;
@@ -110,11 +167,11 @@ function resetGame() {
 
 // ====== PARALLAX LAYER INITIALIZATION ======
 function initializeParallaxLayers() {
-    const floorY = canvas.height - FLOOR_HEIGHT;
+    const floorY = GAME_HEIGHT - FLOOR_HEIGHT;
     
     // Initialize clouds
     clouds = [];
-    for (let x = 0; x < canvas.width + CLOUD_SPACING * 3; x += CLOUD_SPACING) {
+    for (let x = 0; x < GAME_WIDTH + CLOUD_SPACING * 3; x += CLOUD_SPACING) {
         clouds.push({
             x: x + Math.random() * 100,
             y: 50 + Math.random() * 200,
@@ -125,7 +182,7 @@ function initializeParallaxLayers() {
     
     // Initialize far mountains (taller, extending to ground)
     farMountains = [];
-    for (let x = -100; x < canvas.width + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
+    for (let x = -100; x < GAME_WIDTH + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
         const height = 180 + Math.random() * 120; // Increased height
         const baseY = floorY; // Mountains touch the ground
         farMountains.push({
@@ -138,7 +195,7 @@ function initializeParallaxLayers() {
     
     // Initialize near mountains (taller, extending to ground)
     nearMountains = [];
-    for (let x = -100; x < canvas.width + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
+    for (let x = -100; x < GAME_WIDTH + MOUNTAIN_SPACING * 2; x += MOUNTAIN_SPACING) {
         const height = 220 + Math.random() * 150; // Increased height
         const baseY = floorY; // Mountains touch the ground
         nearMountains.push({
@@ -184,12 +241,12 @@ function gameOver() {
 // ====== PIPE SPAWNING ======
 function spawnPipe() {
     const margin = 80;
-    const availableHeight = canvas.height - FLOOR_HEIGHT - PIPE_GAP - margin * 2;
+    const availableHeight = GAME_HEIGHT - FLOOR_HEIGHT - PIPE_GAP - margin * 2;
     const gapTop = margin + Math.random() * availableHeight;
     const gapY = gapTop + PIPE_GAP / 2;
 
     pipes.push({
-        x: canvas.width + PIPE_WIDTH,
+        x: GAME_WIDTH + PIPE_WIDTH,
         gapY,
         passed: false
     });
@@ -215,7 +272,7 @@ function update(deltaTime) {
 
     // Floor & ceiling
     const ceiling = 0;
-    const floorY = canvas.height - FLOOR_HEIGHT;
+    const floorY = GAME_HEIGHT - FLOOR_HEIGHT;
     if (birdY - BIRD_SIZE / 2 < ceiling) {
         birdY = ceiling + BIRD_SIZE / 2;
         birdVelY = 0;
@@ -249,9 +306,9 @@ function update(deltaTime) {
         // Remove off-screen clouds and add new ones
         clouds = clouds.filter(cloud => cloud.x > -200);
         // Find rightmost cloud position
-        let maxCloudX = clouds.length > 0 ? Math.max(...clouds.map(c => c.x)) : canvas.width - 100;
+        let maxCloudX = clouds.length > 0 ? Math.max(...clouds.map(c => c.x)) : GAME_WIDTH - 100;
         // Add new clouds as needed
-        while (maxCloudX < canvas.width + 300) {
+        while (maxCloudX < GAME_WIDTH + 300) {
             const newCloud = {
                 x: maxCloudX + CLOUD_SPACING + Math.random() * 100,
                 y: 50 + Math.random() * 200,
@@ -268,9 +325,9 @@ function update(deltaTime) {
             mountain.x -= farMountainMove;
         });
         farMountains = farMountains.filter(m => m.x > -MOUNTAIN_SPACING);
-        let maxFarMountainX = farMountains.length > 0 ? Math.max(...farMountains.map(m => m.x)) : canvas.width - 100;
-        const floorY = canvas.height - FLOOR_HEIGHT;
-        while (maxFarMountainX < canvas.width + MOUNTAIN_SPACING * 2) {
+        let maxFarMountainX = farMountains.length > 0 ? Math.max(...farMountains.map(m => m.x)) : GAME_WIDTH - 100;
+        const floorY = GAME_HEIGHT - FLOOR_HEIGHT;
+        while (maxFarMountainX < GAME_WIDTH + MOUNTAIN_SPACING * 2) {
             const height = 180 + Math.random() * 120; // Increased height
             const newMountain = {
                 x: maxFarMountainX + MOUNTAIN_SPACING,
@@ -288,8 +345,8 @@ function update(deltaTime) {
             mountain.x -= nearMountainMove;
         });
         nearMountains = nearMountains.filter(m => m.x > -MOUNTAIN_SPACING);
-        let maxNearMountainX = nearMountains.length > 0 ? Math.max(...nearMountains.map(m => m.x)) : canvas.width - 100;
-        while (maxNearMountainX < canvas.width + MOUNTAIN_SPACING * 2) {
+        let maxNearMountainX = nearMountains.length > 0 ? Math.max(...nearMountains.map(m => m.x)) : GAME_WIDTH - 100;
+        while (maxNearMountainX < GAME_WIDTH + MOUNTAIN_SPACING * 2) {
             const height = 220 + Math.random() * 150; // Increased height
             const newMountain = {
                 x: maxNearMountainX + MOUNTAIN_SPACING,
@@ -349,13 +406,13 @@ function update(deltaTime) {
 // ====== DRAW ======
 function drawSkyGradient() {
     // Sky gradient from light blue to dark
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height - FLOOR_HEIGHT);
+    const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT - FLOOR_HEIGHT);
     gradient.addColorStop(0, "#87ceeb");  // Light sky blue
     gradient.addColorStop(0.5, "#4682b4"); // Steel blue
     gradient.addColorStop(1, "#2c3e50");   // Dark blue-gray
     
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height - FLOOR_HEIGHT);
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT - FLOOR_HEIGHT);
 }
 
 function drawClouds() {
@@ -467,16 +524,16 @@ function drawNearMountains() {
 }
 
 function drawGround() {
-    const floorY = canvas.height - FLOOR_HEIGHT;
+    const floorY = GAME_HEIGHT - FLOOR_HEIGHT;
 
     // ground
     ctx.fillStyle = "#0f172a";
-    ctx.fillRect(0, floorY, canvas.width, FLOOR_HEIGHT);
+    ctx.fillRect(0, floorY, GAME_WIDTH, FLOOR_HEIGHT);
 
     // scrolling stripes
     ctx.fillStyle = "#1e293b";
     const stripeWidth = 40;
-    for (let x = 0; x < canvas.width + stripeWidth; x += stripeWidth * 2) {
+    for (let x = 0; x < GAME_WIDTH + stripeWidth; x += stripeWidth * 2) {
         ctx.fillRect(x - (Date.now() / 20 % (stripeWidth * 2)), floorY + 10, stripeWidth, 10);
     }
 }
@@ -494,7 +551,7 @@ function drawPipes() {
     pipes.forEach(pipe => {
         const topPipeBottom = pipe.gapY - PIPE_GAP / 2;
         const bottomPipeTop = pipe.gapY + PIPE_GAP / 2;
-        const playHeight = canvas.height - FLOOR_HEIGHT;
+        const playHeight = GAME_HEIGHT - FLOOR_HEIGHT;
 
         // Top pipe (hanging down from top)
         drawPipeSegment(pipe.x, 0, PIPE_WIDTH, topPipeBottom, true);
@@ -672,7 +729,7 @@ function drawHUD() {
 
     ctx.font = "18px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Best: ${bestScore}`, canvas.width - 20, 34);
+    ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH - 20), 34);
 }
 
 function drawOverlay() {
@@ -680,34 +737,36 @@ function drawOverlay() {
 
     if (gameState === "menu") {
         ctx.fillStyle = "#0f172a88";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "40px Arial";
-        ctx.fillText("FLAPPY CLONE", canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText("FLAPPY CLONE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
 
         ctx.font = "22px Arial";
-        ctx.fillText("Tap / Click / Space / ↑ to flap", canvas.width / 2, canvas.height / 2);
-        ctx.fillText("Press to start", canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText("Tap / Click / Space / ↑ to flap", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2));
+        ctx.fillText("Press to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 40));
     }
 
     if (gameState === "gameOver") {
         ctx.fillStyle = "#0f172acc";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "40px Arial";
-        ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
 
         ctx.font = "24px Arial";
-        ctx.fillText(`Score: ${score}`, canvas.width / 2, canvas.height / 2);
-        ctx.fillText(`Best: ${bestScore}`, canvas.width / 2, canvas.height / 2 + 34);
-        ctx.fillText("Press or tap to play again", canvas.width / 2, canvas.height / 2 + 70);
+        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2));
+        ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 34));
+        ctx.fillText("Press or tap to play again", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 70));
     }
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Ensure context scaling is always applied (safeguard)
+    applyDPRScaling();
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     drawBackground();
     drawPipes();

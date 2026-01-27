@@ -1,6 +1,63 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Logical game dimensions (used for game logic, not actual canvas pixels)
+// After DPR scaling, canvas.width/height will be these * devicePixelRatio
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+
+// Apply device pixel ratio scaling for crisp rendering on high-DPI displays
+// This ensures text and graphics render sharply
+function applyDPRScaling() {
+    // Get the DPR that was set by resizeCanvas, or calculate it
+    const dpr = canvas._dpr || window.devicePixelRatio || 1;
+    
+    // Always ensure the context is properly scaled
+    // The canvas dimensions should be GAME_WIDTH * dpr x GAME_HEIGHT * dpr
+    if (canvas.width === GAME_WIDTH * dpr && canvas.height === GAME_HEIGHT * dpr) {
+        // Canvas is properly sized, ensure context is scaled
+        // Check if scale is already applied (getTransform might not be available in all browsers)
+        let needsScale = true;
+        if (ctx.getTransform) {
+            const currentTransform = ctx.getTransform();
+            // Check if scale is already applied (within small tolerance)
+            if (Math.abs(currentTransform.a - dpr) < 0.01 && Math.abs(currentTransform.d - dpr) < 0.01) {
+                needsScale = false;
+            }
+        }
+        if (needsScale) {
+            // Scale not applied or incorrect, reapply it
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+        }
+    } else if (canvas.width !== GAME_WIDTH || canvas.height !== GAME_HEIGHT) {
+        // Canvas has been resized but might not have DPR applied yet
+        // Calculate the scale that was applied
+        const scaleX = canvas.width / GAME_WIDTH;
+        const scaleY = canvas.height / GAME_HEIGHT;
+        // Reset transform and apply scale
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(scaleX, scaleY);
+    }
+    
+    // Optimize text rendering for crisp text
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    
+    // Enable better text rendering (but keep image smoothing for graphics)
+    if (ctx.imageSmoothingEnabled !== undefined) {
+        ctx.imageSmoothingEnabled = true;
+    }
+}
+
+// Apply scaling immediately
+applyDPRScaling();
+
+// Expose refresh function for resizeCanvas to call
+window.refreshGameContext = function() {
+    applyDPRScaling();
+};
+
 // ====== SETTINGS ======
 const PADDLE_WIDTH = 120;
 const PADDLE_WIDTH_WIDE = 180; // Power-up width
@@ -22,12 +79,12 @@ const CIRCLE_RADIUS = 18; // Radius of circular bricks
 const START_LIVES = 3;
 
 // ====== GAME STATE ======
-let paddleX = canvas.width / 2 - PADDLE_WIDTH / 2;
-let paddleY = canvas.height - 50;
+let paddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2;
+let paddleY = GAME_HEIGHT - 50;
 let currentPaddleWidth = PADDLE_WIDTH;
 
-let ballX = canvas.width / 2;
-let ballY = canvas.height / 2;
+let ballX = GAME_WIDTH / 2;
+let ballY = GAME_HEIGHT / 2;
 let prevBallX = ballX;
 let prevBallY = ballY;
 let ballVelX = BALL_BASE_SPEED;
@@ -129,8 +186,8 @@ document.addEventListener("keyup", (e) => {
 // Helper function to convert screen coordinates to canvas coordinates
 function getCanvasCoordinates(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = GAME_WIDTH / rect.width;
+    const scaleY = GAME_HEIGHT / rect.height;
     return {
         x: (clientX - rect.left) * scaleX,
         y: (clientY - rect.top) * scaleY
@@ -184,11 +241,11 @@ canvas.addEventListener("click", (e) => {
     const mouseY = coords.y;
     
     if (gameState === "levelSelect") {
-        const centerY = canvas.height / 2;
+        const centerY = GAME_HEIGHT / 2;
         const buttonWidth = 300;
         const buttonHeight = 50;
         const buttonSpacing = 20;
-        const startX = canvas.width / 2 - buttonWidth / 2;
+        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -210,11 +267,11 @@ canvas.addEventListener("click", (e) => {
         }
     } else if (gameState === "gameOver" || gameState === "win") {
         // Button areas for level selection (must match draw function positions)
-        const buttonY = canvas.height / 2 + 20;
+        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
         const buttonHeight = 40;
         const buttonSpacing = 50;
-        const startX = canvas.width / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -235,7 +292,7 @@ canvas.addEventListener("click", (e) => {
             startNewGame();
         }
         // Return to menu button
-        else if (mouseX >= canvas.width / 2 - 100 && mouseX < canvas.width / 2 + 100 &&
+        else if (mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
                  mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20) {
             gameState = "levelSelect";
         }
@@ -262,11 +319,11 @@ canvas.addEventListener("touchstart", (e) => {
     // Handle button clicks
     e.preventDefault();
     if (gameState === "levelSelect") {
-        const centerY = canvas.height / 2;
+        const centerY = GAME_HEIGHT / 2;
         const buttonWidth = 300;
         const buttonHeight = 50;
         const buttonSpacing = 20;
-        const startX = canvas.width / 2 - buttonWidth / 2;
+        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -288,11 +345,11 @@ canvas.addEventListener("touchstart", (e) => {
         }
     } else if (gameState === "gameOver" || gameState === "win") {
         // Button areas for level selection (must match draw function positions)
-        const buttonY = canvas.height / 2 + 20;
+        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
         const buttonHeight = 40;
         const buttonSpacing = 50;
-        const startX = canvas.width / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
         
         // Level 1 button
         if (mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -313,7 +370,7 @@ canvas.addEventListener("touchstart", (e) => {
             startNewGame();
         }
         // Return to menu button
-        else if (mouseX >= canvas.width / 2 - 100 && mouseX < canvas.width / 2 + 100 &&
+        else if (mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
                  mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20) {
             gameState = "levelSelect";
         }
@@ -347,7 +404,7 @@ function createBricks() {
     } else if (selectedLevel === 2) {
         // Level 2: Triangular bricks in triangle pattern
         const TRIANGLE_ROWS = 7;
-        const centerX = canvas.width / 2;
+        const centerX = GAME_WIDTH / 2;
         const startY = BRICK_OFFSET_TOP;
         
         for (let row = 0; row < TRIANGLE_ROWS; row++) {
@@ -380,7 +437,7 @@ function createBricks() {
     } else if (selectedLevel === 3) {
         // Level 3: Circular bricks in circular layers
         const CIRCLE_LAYERS = 5;
-        const centerX = canvas.width / 2;
+        const centerX = GAME_WIDTH / 2;
         const centerY = BRICK_OFFSET_TOP + 150;
         const layerSpacing = CIRCLE_RADIUS * 2.5;
         
@@ -495,7 +552,7 @@ function updatePowerUps() {
         }
 
         // Remove if off screen
-        if (pu.y > canvas.height) {
+        if (pu.y > GAME_HEIGHT) {
             powerUps.splice(i, 1);
         }
     }
@@ -590,8 +647,8 @@ function updateMultiBalls() {
             ball.x = BALL_RADIUS;
             ball.velX = -ball.velX;
         }
-        if (ball.x + BALL_RADIUS > canvas.width && ball.velX > 0) {
-            ball.x = canvas.width - BALL_RADIUS;
+        if (ball.x + BALL_RADIUS > GAME_WIDTH && ball.velX > 0) {
+            ball.x = GAME_WIDTH - BALL_RADIUS;
             ball.velX = -ball.velX;
         }
         if (ball.y - BALL_RADIUS < 0 && ball.velY < 0) {
@@ -600,7 +657,7 @@ function updateMultiBalls() {
         }
 
         // Bottom - remove ball
-        if (ball.y - BALL_RADIUS > canvas.height) {
+        if (ball.y - BALL_RADIUS > GAME_HEIGHT) {
             balls.splice(i, 1);
             // Check if all balls are now gone
             checkAllBallsLost();
@@ -669,7 +726,7 @@ function drawMultiBalls() {
 // ====== HELPER FUNCTIONS ======
 // Check if main ball is off-screen (lost)
 function isMainBallLost() {
-    return ballY - BALL_RADIUS > canvas.height;
+    return ballY - BALL_RADIUS > GAME_HEIGHT;
 }
 
 // Check if all balls are gone and handle life loss
@@ -717,8 +774,8 @@ function startNewGame() {
     balls = [];
     powerUps = [];
     particles = [];
-    paddleX = canvas.width / 2 - PADDLE_WIDTH / 2;
-    paddleY = canvas.height - 50;
+    paddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2;
+    paddleY = GAME_HEIGHT - 50;
     resetBall();
     createBricks();
     gameState = "playing";
@@ -729,7 +786,7 @@ function startNewGame() {
 }
 
 function resetBall() {
-    ballX = canvas.width / 2;
+    ballX = GAME_WIDTH / 2;
     ballY = paddleY - BALL_RADIUS - 10; // Position above paddle
     prevBallX = ballX;
     prevBallY = ballY;
@@ -740,8 +797,8 @@ function resetBall() {
 
 function clampPaddle() {
     if (paddleX < 0) paddleX = 0;
-    if (paddleX + currentPaddleWidth > canvas.width) {
-        paddleX = canvas.width - currentPaddleWidth;
+    if (paddleX + currentPaddleWidth > GAME_WIDTH) {
+        paddleX = GAME_WIDTH - currentPaddleWidth;
     }
 }
 
@@ -1097,8 +1154,8 @@ function update() {
             ballX = BALL_RADIUS;
             ballVelX = -ballVelX;
         }
-        if (ballX + BALL_RADIUS > canvas.width && ballVelX > 0) {
-            ballX = canvas.width - BALL_RADIUS;
+        if (ballX + BALL_RADIUS > GAME_WIDTH && ballVelX > 0) {
+            ballX = GAME_WIDTH - BALL_RADIUS;
             ballVelX = -ballVelX;
         }
 
@@ -1109,12 +1166,12 @@ function update() {
         }
 
         // Bottom - check if main ball is lost
-        if (ballY - BALL_RADIUS > canvas.height) {
+        if (ballY - BALL_RADIUS > GAME_HEIGHT) {
             // Main ball is lost - check if all balls are gone
             if (!checkAllBallsLost()) {
                 // Main ball is lost but multi-balls remain - keep it off-screen
-                ballX = canvas.width / 2;
-                ballY = canvas.height + 100; // Keep it off-screen
+                ballX = GAME_WIDTH / 2;
+                ballY = GAME_HEIGHT + 100; // Keep it off-screen
                 ballVelX = 0;
                 ballVelY = 0;
             }
@@ -1218,22 +1275,25 @@ function drawBricks() {
 }
 
 function draw() {
+    // Ensure context scaling is always applied (safeguard)
+    applyDPRScaling();
+    
     // Background
     ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
     // Level selection menu
     if (gameState === "levelSelect") {
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "40px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("SELECT LEVEL", canvas.width / 2, 100);
+        ctx.fillText("SELECT LEVEL", Math.round(GAME_WIDTH / 2), 100);
         
-        const centerY = canvas.height / 2;
+        const centerY = GAME_HEIGHT / 2;
         const buttonWidth = 300;
         const buttonHeight = 50;
         const buttonSpacing = 20;
-        const startX = canvas.width / 2 - buttonWidth / 2;
+        const startX = GAME_WIDTH / 2 - buttonWidth / 2;
         
         // Pulse animation
         const pulse = Math.sin(animationTime * 3) * 0.05 + 1;
@@ -1286,13 +1346,13 @@ function draw() {
             // Draw text
             ctx.fillStyle = "#fff";
             ctx.font = "24px Arial";
-            ctx.fillText(btn.text, canvas.width / 2, btn.y + offsetY + 35);
+            ctx.fillText(btn.text, Math.round(GAME_WIDTH / 2), Math.round(btn.y + offsetY + 35));
         });
         
         ctx.fillStyle = "#888";
         ctx.font = "18px Arial";
-        ctx.fillText("Use Arrow Keys to select, SPACE/ENTER to start", canvas.width / 2, canvas.height - 50);
-        ctx.fillText("Or click on a level", canvas.width / 2, canvas.height - 25);
+        ctx.fillText("Use Arrow Keys to select, SPACE/ENTER to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 50));
+        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 25));
         return;
     }
 
@@ -1325,41 +1385,41 @@ function draw() {
     ctx.fillText(`Score: ${score}`, 20, 24);
     ctx.fillText(`Level: ${selectedLevel}`, 20, 48);
     ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives}`, canvas.width - 20, 24);
-    ctx.fillText(`High Score: ${highScore}`, canvas.width - 20, 48);
+    ctx.fillText(`Lives: ${lives}`, Math.round(GAME_WIDTH - 20), 24);
+    ctx.fillText(`High Score: ${highScore}`, Math.round(GAME_WIDTH - 20), 48);
 
     // State overlays
     ctx.textAlign = "center";
     if (gameState === "menu") {
         ctx.font = "40px Arial";
-        ctx.fillText("BREAKOUT", canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText("BREAKOUT", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
         ctx.font = "22px Arial";
-        ctx.fillText("Arrow keys or mouse to move", canvas.width / 2, canvas.height / 2 + 5);
-        ctx.fillText("Press SPACE to Start", canvas.width / 2, canvas.height / 2 + 35);
-        ctx.fillText("Press P to Pause", canvas.width / 2, canvas.height / 2 + 65);
+        ctx.fillText("Arrow keys or mouse to move", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 5));
+        ctx.fillText("Press SPACE to Start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 35));
+        ctx.fillText("Press P to Pause", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 65));
     } else if (gameState === "paused") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "36px Arial";
-        ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 10);
+        ctx.fillText("PAUSED", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
         ctx.font = "22px Arial";
-        ctx.fillText("Press SPACE or P to Resume", canvas.width / 2, canvas.height / 2 + 25);
+        ctx.fillText("Press SPACE or P to Resume", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 25));
     } else if (gameState === "gameOver") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "36px Arial";
-        ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 80);
+        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 80));
         ctx.font = "22px Arial";
-        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
         
         // Level selection buttons
-        const buttonY = canvas.height / 2 + 20;
+        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
         const buttonHeight = 40;
         const buttonSpacing = 50;
-        const startX = canvas.width / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
         
         // Check hover states
         const level1Hovered = mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -1368,7 +1428,7 @@ function draw() {
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
         const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const menuHovered = mouseX >= canvas.width / 2 - 100 && mouseX < canvas.width / 2 + 100 &&
+        const menuHovered = mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
                             mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20;
         
         // Level 1 button
@@ -1381,26 +1441,26 @@ function draw() {
         drawAnimatedButton(ctx, startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight, "Level 3", "#eab308", false, level3Hovered, animationTime);
         
         // Return to menu button
-        drawAnimatedButton(ctx, canvas.width / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#666", false, menuHovered, animationTime);
+        drawAnimatedButton(ctx, GAME_WIDTH / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#666", false, menuHovered, animationTime);
         
         ctx.fillStyle = "#888";
         ctx.font = "16px Arial";
-        ctx.fillText("Press 1, 2, or 3 to select level", canvas.width / 2, canvas.height - 30);
+        ctx.fillText("Press 1, 2, or 3 to select level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
     } else if (gameState === "win") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "36px Arial";
-        ctx.fillText(`Level ${selectedLevel} Complete!`, canvas.width / 2, canvas.height / 2 - 80);
+        ctx.fillText(`Level ${selectedLevel} Complete!`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 80));
         ctx.font = "22px Arial";
-        ctx.fillText(`Score: ${score}`, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
         
         // Level selection buttons
-        const buttonY = canvas.height / 2 + 20;
+        const buttonY = GAME_HEIGHT / 2 + 20;
         const buttonWidth = 200;
         const buttonHeight = 40;
         const buttonSpacing = 50;
-        const startX = canvas.width / 2 - (buttonWidth * 1.5 + buttonSpacing);
+        const startX = GAME_WIDTH / 2 - (buttonWidth * 1.5 + buttonSpacing);
         
         // Check hover states
         const level1Hovered = mouseX >= startX && mouseX < startX + buttonWidth &&
@@ -1409,7 +1469,7 @@ function draw() {
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
         const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
                               mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const menuHovered = mouseX >= canvas.width / 2 - 100 && mouseX < canvas.width / 2 + 100 &&
+        const menuHovered = mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
                             mouseY >= buttonY + buttonHeight + 20 && mouseY < buttonY + buttonHeight * 2 + 20;
         
         // Level 1 button
@@ -1422,11 +1482,11 @@ function draw() {
         drawAnimatedButton(ctx, startX + (buttonWidth + buttonSpacing) * 2, buttonY, buttonWidth, buttonHeight, "Level 3", "#eab308", false, level3Hovered, animationTime);
         
         // Return to menu button
-        drawAnimatedButton(ctx, canvas.width / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#22c55e", false, menuHovered, animationTime);
+        drawAnimatedButton(ctx, GAME_WIDTH / 2 - 100, buttonY + buttonHeight + 20, 200, buttonHeight, "Menu", "#22c55e", false, menuHovered, animationTime);
         
         ctx.fillStyle = "#888";
         ctx.font = "16px Arial";
-        ctx.fillText("Press 1, 2, or 3 to select level", canvas.width / 2, canvas.height - 30);
+        ctx.fillText("Press 1, 2, or 3 to select level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
     }
 }
 
