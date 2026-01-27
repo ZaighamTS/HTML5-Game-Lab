@@ -51,6 +51,9 @@
             max-height: 100%;
             width: auto;
             height: auto;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
         }
 
         .back-btn {
@@ -88,13 +91,16 @@
         <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
     <script>
-        // Responsive canvas scaling
+        // Responsive canvas scaling with high-DPI support
         function resizeCanvas() {
             const canvas = document.getElementById('gameCanvas');
             const container = document.querySelector('.game-container');
             const gameWidth = 800;  // Original game width
             const gameHeight = 600; // Original game height
             const aspectRatio = gameWidth / gameHeight;
+            
+            // Get device pixel ratio for high-DPI displays
+            const dpr = window.devicePixelRatio || 1;
             
             // Get available space
             const maxWidth = window.innerWidth - 40;  // Account for padding
@@ -117,8 +123,29 @@
             canvas.style.width = newWidth + 'px';
             canvas.style.height = newHeight + 'px';
             
-            // Keep internal resolution at original size for game logic
-            // The canvas will scale automatically
+            // Get device pixel ratio for high-DPI displays
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Set internal resolution to match display size multiplied by DPR
+            // This prevents blurriness on high-DPI displays
+            // Note: This changes canvas.width/height, but we scale the context to compensate
+            const ctx = canvas.getContext('2d');
+            
+            // Save current transform
+            ctx.save();
+            
+            // Set high-DPI internal resolution
+            canvas.width = newWidth * dpr;
+            canvas.height = newHeight * dpr;
+            
+            // Scale context by DPR so coordinates match display pixels
+            ctx.scale(dpr, dpr);
+            
+            // Now canvas.width returns newWidth*dpr, but coordinates work with newWidth/newHeight
+            // Game code needs to be aware that canvas.width != logical width
+            // For now, we'll use a workaround: store logical dimensions
+            canvas._logicalWidth = newWidth;
+            canvas._logicalHeight = newHeight;
         }
 
         // Lock screen orientation to landscape - AGGRESSIVE MODE
