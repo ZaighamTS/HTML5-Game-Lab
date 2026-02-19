@@ -30,6 +30,13 @@
             user-select: none;
         }
 
+        .game-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
         canvas {
             display: block;
             background: #020617;
@@ -38,6 +45,72 @@
             width: auto;
             height: auto;
         }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-overlay .menu-overlay,
+        .ui-overlay .game-over-overlay {
+            pointer-events: auto;
+        }
+        .flappy-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 28px;
+            font-weight: bold;
+            color: #e5e7eb;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .flappy-hud .best { font-size: 18px; }
+        .menu-overlay, .game-over-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            padding: 30px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+        }
+        .menu-overlay h1, .game-over-overlay h1 { font-size: 52px; margin: 0 0 10px 0; color: #e5e7eb; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .menu-overlay h2 { font-size: 36px; color: #38bdf8; margin: 0 0 20px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .menu-overlay p, .game-over-overlay p { font-size: 20px; color: rgba(229,231,235,0.9); margin: 8px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .game-over-overlay .game-over-title { font-size: 48px; margin-bottom: 20px; }
+        .game-over-overlay .score-line { font-size: 28px; font-weight: bold; }
+        .game-over-overlay .new-best { font-size: 24px; color: #fbbf24; margin: 8px 0; }
+        .game-over-overlay .best-line { font-size: 22px; color: rgba(229,231,235,0.8); }
+        .flappy-btn {
+            padding: 16px 32px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid #38bdf8;
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            margin: 20px auto;
+            display: block;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .flappy-btn.play-again { border-color: #22c55e; background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .flappy-btn:hover { transform: scale(1.05); }
 
         .back-btn {
             position: fixed;
@@ -70,7 +143,29 @@
         ← Back to Menu
     </button>
 
-    <canvas id="gameCanvas" width="480" height="720"></canvas>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="480" height="720"></canvas>
+        <div class="ui-overlay">
+            <div class="flappy-hud" id="flappyHud">
+                <span id="flappyScore">0</span>
+                <span class="best">Best: <span id="flappyBest">0</span></span>
+            </div>
+            <div class="menu-overlay" id="flappyMenuOverlay">
+                <h1>FLAPPY</h1>
+                <h2>CLONE</h2>
+                <p>Tap / Click / Space / ↑ to flap</p>
+                <button type="button" class="flappy-btn" id="flappyStartBtn">Press to Start</button>
+            </div>
+            <div class="game-over-overlay" id="flappyGameOverOverlay" style="display: none;">
+                <h1 class="game-over-title">Game Over</h1>
+                <p class="score-line">Score: <span id="flappyGameOverScore">0</span></p>
+                <p class="new-best" id="flappyNewBest" style="display: none;">New Best Score!</p>
+                <p class="best-line">Best: <span id="flappyGameOverBest">0</span></p>
+                <button type="button" class="flappy-btn play-again" id="flappyPlayAgainBtn">Play Again</button>
+                <p style="font-size: 18px; color: rgba(148,163,184,0.7);">Press or tap to play again</p>
+            </div>
+        </div>
+    </div>
     <script>
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
         function resizeCanvas() {
@@ -103,23 +198,14 @@
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
             
-            // Set canvas internal resolution (actual pixel dimensions)
-            // Multiply by devicePixelRatio for crisp rendering on high-DPI displays
-            canvas.width = gameWidth * dpr;
-            canvas.height = gameHeight * dpr;
+            // Set canvas internal resolution to fixed game dimensions (UI is in HTML)
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
             
-            // Scale the context to match the game's coordinate system
-            // IMPORTANT: Setting canvas.width/height resets the context, so we must
-            // get a fresh context reference and apply the scale
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform first
-            ctx.scale(dpr, dpr);
-            
-            // Enable text rendering optimizations for crisp text
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'center';
-            
-            // Store DPR for game.js to use
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             canvas._dpr = dpr;
             
             // Notify game.js to refresh its context if it has loaded

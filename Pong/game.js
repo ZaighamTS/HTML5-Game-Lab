@@ -6,51 +6,18 @@ const ctx = canvas.getContext("2d");
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
-// Apply device pixel ratio scaling for crisp rendering on high-DPI displays
-// This ensures text and graphics render sharply
+// Canvas is now at fixed resolution - no scaling needed
+// UI elements are rendered in HTML for crisp text
+// This function is kept for compatibility but does minimal setup
 function applyDPRScaling() {
-    // Get the DPR that was set by resizeCanvas, or calculate it
-    const dpr = canvas._dpr || window.devicePixelRatio || 1;
-    
-    // Always ensure the context is properly scaled
-    // The canvas dimensions should be GAME_WIDTH * dpr x GAME_HEIGHT * dpr
-    if (canvas.width === GAME_WIDTH * dpr && canvas.height === GAME_HEIGHT * dpr) {
-        // Canvas is properly sized, ensure context is scaled
-        // Check if scale is already applied (getTransform might not be available in all browsers)
-        let needsScale = true;
-        if (ctx.getTransform) {
-            const currentTransform = ctx.getTransform();
-            // Check if scale is already applied (within small tolerance)
-            if (Math.abs(currentTransform.a - dpr) < 0.01 && Math.abs(currentTransform.d - dpr) < 0.01) {
-                needsScale = false;
-            }
-        }
-        if (needsScale) {
-            // Scale not applied or incorrect, reapply it
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(dpr, dpr);
-        }
-    } else if (canvas.width !== GAME_WIDTH || canvas.height !== GAME_HEIGHT) {
-        // Canvas has been resized but might not have DPR applied yet
-        // Calculate the scale that was applied
-        const scaleX = canvas.width / GAME_WIDTH;
-        const scaleY = canvas.height / GAME_HEIGHT;
-        // Reset transform and apply scale
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(scaleX, scaleY);
-    }
-    
-    // Optimize text rendering for crisp text
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'center';
-    
-    // Enable better text rendering (but keep image smoothing for graphics)
+    // Ensure image smoothing is enabled for better graphics quality
     if (ctx.imageSmoothingEnabled !== undefined) {
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
     }
 }
 
-// Apply scaling immediately
+// Apply immediately
 applyDPRScaling();
 
 // Expose refresh function for resizeCanvas to call
@@ -355,7 +322,7 @@ function drawNet() {
 }
 
 function draw() {
-    // Ensure context scaling is always applied (safeguard)
+    // Ensure context is properly set up
     applyDPRScaling();
     
     // Background
@@ -394,32 +361,36 @@ function draw() {
     ctx.arc(ballX, ballY, BALL_SIZE / 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Scores
-    ctx.font = "40px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    ctx.fillText(leftScore, Math.round(GAME_WIDTH / 4), 50);
-    ctx.fillText(rightScore, Math.round((GAME_WIDTH * 3) / 4), 50);
+    // UI elements are now rendered in HTML, update them here
+    updateUI();
+}
 
-    // Overlays for states
+// Update HTML UI elements (called from draw function)
+function updateUI() {
+    // Update scores
+    const leftScoreEl = document.getElementById('leftScore');
+    const rightScoreEl = document.getElementById('rightScore');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const winnerTextEl = document.getElementById('winnerText');
+    
+    if (leftScoreEl) leftScoreEl.textContent = leftScore;
+    if (rightScoreEl) rightScoreEl.textContent = rightScore;
+    
+    // Show/hide overlays based on game state
     if (gameState === "menu") {
-        ctx.font = "60px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText("PONG", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
-
-        ctx.font = "28px Arial";
-        ctx.fillText("Press SPACE or Tap to Start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 20));
+        if (menuOverlay) menuOverlay.style.display = "block";
+        if (gameOverOverlay) gameOverOverlay.style.display = "none";
     } else if (gameState === "gameOver") {
-        ctx.font = "40px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText(winnerText, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 20));
-
-        ctx.font = "28px Arial";
-        ctx.fillText(
-            "Press SPACE or Tap to Play Again",
-            Math.round(GAME_WIDTH / 2),
-            Math.round(GAME_HEIGHT / 2 + 30)
-        );
+        if (menuOverlay) menuOverlay.style.display = "none";
+        if (gameOverOverlay) {
+            gameOverOverlay.style.display = "block";
+            if (winnerTextEl) winnerTextEl.textContent = winnerText;
+        }
+    } else {
+        // Playing state - hide all overlays
+        if (menuOverlay) menuOverlay.style.display = "none";
+        if (gameOverOverlay) gameOverOverlay.style.display = "none";
     }
 }
 

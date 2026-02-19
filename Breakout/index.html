@@ -71,6 +71,122 @@
             opacity: 1;
         }
 
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-overlay .level-select-overlay,
+        .ui-overlay .menu-overlay,
+        .ui-overlay .paused-overlay,
+        .ui-overlay .game-end-overlay {
+            pointer-events: auto;
+        }
+        .hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            color: #e5e7eb;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .overlay-title {
+            font-size: 40px;
+            font-weight: bold;
+            color: #e5e7eb;
+            margin: 0 0 20px 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .level-select-overlay,
+        .menu-overlay,
+        .paused-overlay,
+        .game-end-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+        .level-select-overlay .overlay-title { font-size: 48px; margin-bottom: 30px; }
+        .level-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        .level-btn {
+            padding: 16px 24px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid rgba(148, 163, 184, 0.4);
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .level-btn small { font-size: 16px; opacity: 0.9; font-weight: normal; }
+        .level-btn.level-1 { border-color: #38bdf8; }
+        .level-btn.level-1:hover { border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.5); transform: scale(1.02); }
+        .level-btn.level-2 { border-color: #22c55e; }
+        .level-btn.level-2:hover { border-color: #22c55e; box-shadow: 0 0 20px rgba(34, 197, 94, 0.5); transform: scale(1.02); }
+        .level-btn.level-3 { border-color: #eab308; }
+        .level-btn.level-3:hover { border-color: #eab308; box-shadow: 0 0 20px rgba(234, 179, 8, 0.5); transform: scale(1.02); }
+        .menu-overlay p,
+        .paused-overlay p {
+            font-size: 22px;
+            color: #e5e7eb;
+            margin: 8px 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .paused-overlay { background: rgba(0,0,0,0.7); padding: 40px; border-radius: 12px; }
+        .game-end-overlay .overlay-title { font-size: 48px; }
+        .game-end-score { font-size: 24px; color: #e5e7eb; margin: 10px 0; }
+        .new-high-score { font-size: 20px; color: #fbbf24; margin: 8px 0; }
+        .game-end-buttons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
+        .end-btn, .menu-btn {
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid rgba(148, 163, 184, 0.4);
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .end-btn:hover, .menu-btn:hover { border-color: #64748b; transform: scale(1.02); }
+        .menu-btn { margin-top: 10px; background: #334155; }
+        .overlay-hint {
+            font-size: 18px;
+            color: rgba(148, 163, 184, 0.8);
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
         @media (orientation: landscape) {
             .game-container {
                 max-width: calc(100vw - 40px);
@@ -86,6 +202,43 @@
 
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="ui-overlay">
+            <div class="hud" id="breakoutHud">
+                <div class="hud-left">Score: <span id="breakoutScore">0</span> &nbsp; Level: <span id="breakoutLevel">1</span></div>
+                <div class="hud-right">Lives: <span id="breakoutLives">3</span> &nbsp; High Score: <span id="breakoutHighScore">0</span></div>
+            </div>
+            <div class="level-select-overlay" id="levelSelectOverlay" style="display: none;">
+                <h1 class="overlay-title">SELECT LEVEL</h1>
+                <div class="level-buttons">
+                    <button type="button" class="level-btn level-1" onclick="window.startBreakoutLevel(1)">1. Rectangular Bricks<br><small>5 rows × 10 columns</small></button>
+                    <button type="button" class="level-btn level-2" onclick="window.startBreakoutLevel(2)">2. Triangular Bricks<br><small>Geometric patterns</small></button>
+                    <button type="button" class="level-btn level-3" onclick="window.startBreakoutLevel(3)">3. Circular Bricks<br><small>Concentric circles</small></button>
+                </div>
+                <p class="overlay-hint">Use Arrow Keys to select, SPACE/ENTER to start · Or click a level</p>
+            </div>
+            <div class="menu-overlay" id="breakoutMenuOverlay" style="display: none;">
+                <h1 class="overlay-title">BREAKOUT</h1>
+                <p>Arrow keys or mouse to move</p>
+                <p>Press SPACE to Start</p>
+                <p>Press P to Pause</p>
+            </div>
+            <div class="paused-overlay" id="breakoutPausedOverlay" style="display: none;">
+                <h2 class="overlay-title">PAUSED</h2>
+                <p>Press SPACE or P to Resume</p>
+            </div>
+            <div class="game-end-overlay" id="breakoutGameEndOverlay" style="display: none;">
+                <h2 class="overlay-title" id="breakoutGameEndTitle"></h2>
+                <p class="game-end-score" id="breakoutGameEndScore"></p>
+                <p class="new-high-score" id="breakoutNewHighScore" style="display: none;">New High Score!</p>
+                <div class="game-end-buttons">
+                    <button type="button" class="end-btn" onclick="window.startBreakoutLevel(1)">Level 1</button>
+                    <button type="button" class="end-btn" onclick="window.startBreakoutLevel(2)">Level 2</button>
+                    <button type="button" class="end-btn" onclick="window.startBreakoutLevel(3)">Level 3</button>
+                </div>
+                <button type="button" class="menu-btn" onclick="window.goToBreakoutLevelSelect()">Menu</button>
+                <p class="overlay-hint">Press 1, 2, or 3 to select level · Or click a level</p>
+            </div>
+        </div>
     </div>
     <script>
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
@@ -120,23 +273,14 @@
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
             
-            // Set canvas internal resolution (actual pixel dimensions)
-            // Multiply by devicePixelRatio for crisp rendering on high-DPI displays
-            canvas.width = gameWidth * dpr;
-            canvas.height = gameHeight * dpr;
+            // Set canvas internal resolution to fixed game dimensions (UI is in HTML)
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
             
-            // Scale the context to match the game's coordinate system
-            // IMPORTANT: Setting canvas.width/height resets the context, so we must
-            // get a fresh context reference and apply the scale
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform first
-            ctx.scale(dpr, dpr);
-            
-            // Enable text rendering optimizations for crisp text
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'center';
-            
-            // Store DPR for game.js to use
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             canvas._dpr = dpr;
             
             // Notify game.js to refresh its context if it has loaded

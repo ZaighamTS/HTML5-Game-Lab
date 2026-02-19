@@ -71,6 +71,84 @@
             opacity: 1;
         }
 
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-overlay .whack-menu-overlay,
+        .ui-overlay .whack-gameover-overlay {
+            pointer-events: auto;
+        }
+        .whack-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            background: rgba(0,0,0,0.4);
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .whack-hud .hud-combo {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 70px;
+            color: #facc15;
+            font-size: 26px;
+        }
+        .whack-menu-overlay,
+        .whack-gameover-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+            padding: 30px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+        }
+        .whack-menu-overlay h1, .whack-gameover-overlay h1 { font-size: 56px; margin: 0 0 10px 0; color: #e5e7eb; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .whack-menu-overlay h2 { font-size: 40px; color: #d97706; margin: 0 0 20px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .whack-menu-overlay p, .whack-gameover-overlay p { font-size: 20px; color: rgba(229,231,235,0.9); margin: 8px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+        .whack-go-title { font-size: 48px; }
+        .whack-go-score { font-size: 28px; font-weight: bold; }
+        .whack-new-best { font-size: 24px; color: #fbbf24; }
+        .whack-best-line { font-size: 22px; color: rgba(229,231,235,0.8); }
+        .whack-countdown { font-size: 18px; color: rgba(148,163,184,0.7); margin-top: 10px; }
+        .whack-btn {
+            padding: 16px 32px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid #d97706;
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #d97706, #b45309);
+            margin: 20px auto;
+            display: block;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .whack-btn:hover { transform: scale(1.05); }
+
         @media (orientation: landscape) {
             .game-container {
                 max-width: calc(100vw - 40px);
@@ -86,6 +164,28 @@
 
     <div class="game-container">
         <canvas id="gameCanvas" width="900" height="600"></canvas>
+        <div class="ui-overlay">
+            <div class="whack-hud" id="whackHud">
+                <div class="hud-score">Score: <span id="whackScore">0</span></div>
+                <div class="hud-time">Time: <span id="whackTime">30</span></div>
+                <div class="hud-lives">Lives: <span id="whackLives">3</span></div>
+                <div class="hud-combo" id="whackCombo" style="display: none;">Combo x<span id="whackComboVal">2</span></div>
+            </div>
+            <div class="whack-menu-overlay" id="whackMenuOverlay">
+                <h1>WHACK</h1>
+                <h2>A MOLE</h2>
+                <p>Click / Tap the moles to whack them!</p>
+                <button type="button" class="whack-btn" id="whackStartBtn">Press to Start</button>
+            </div>
+            <div class="whack-gameover-overlay" id="whackGameOverOverlay" style="display: none;">
+                <h1 class="whack-go-title" id="whackGameOverTitle">Game Over!</h1>
+                <p class="whack-go-score">Final Score: <span id="whackFinalScore">0</span></p>
+                <p class="whack-new-best" id="whackNewBest" style="display: none;">New Best Score!</p>
+                <p class="whack-best-line">Best: <span id="whackBestScore">0</span></p>
+                <button type="button" class="whack-btn" id="whackPlayAgainBtn" style="display: none;">Play Again</button>
+                <p class="whack-countdown" id="whackCountdown"></p>
+            </div>
+        </div>
     </div>
     <script>
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
@@ -120,20 +220,14 @@
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
             
-            // Set canvas internal resolution (actual pixel dimensions)
-            // Multiply by devicePixelRatio for crisp rendering on high-DPI displays
-            canvas.width = gameWidth * dpr;
-            canvas.height = gameHeight * dpr;
+            // Set canvas internal resolution to fixed game dimensions (UI is in HTML)
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
             
-            // Scale the context to match the game's coordinate system
             const ctx = canvas.getContext('2d');
-            ctx.scale(dpr, dpr);
-            
-            // Enable text rendering optimizations for crisp text
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'left';
-            
-            // Store the scale factor for coordinate transformations
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             canvas._scaleX = displayWidth / gameWidth;
             canvas._scaleY = displayHeight / gameHeight;
         }

@@ -48,6 +48,12 @@ const GAME_OVER_DELAY = 3; // Seconds to wait before allowing restart
 let animationTime = 0; // for UI animations
 let mouseX = 0;
 let mouseY = 0;
+let bestScore = 0;
+try {
+    bestScore = parseInt(localStorage.getItem("whackBestScore") || "0", 10);
+} catch (e) {
+    bestScore = 0;
+}
 
 // ===== SOUNDS =====
 const hitSound = new Audio("../Sounds/hit.wav");
@@ -540,12 +546,14 @@ function drawHoles() {
 }
 
 function drawHoleRims() {
-    // Draw hole rims/edges on top (after mole) to create proper masking effect
+    // Draw hole rims/edges only for holes WITHOUT active moles, so moles appear in front
     holes.forEach((h, index) => {
+        const hasActiveMole = activeMoles.some(mole => mole.holeIndex === index);
+        if (hasActiveMole) return; // Skip rim when mole is up - mole should be in front
+        
         const centerX = h.x + HOLE_SIZE / 2;
         const centerY = h.y + HOLE_SIZE / 2;
         
-        // Hole rim (edge highlight) - drawn on top
         ctx.strokeStyle = "#654321";
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -846,111 +854,58 @@ function drawParticles() {
     ctx.globalAlpha = 1;
 }
 
+function updateUI() {
+    const scoreEl = document.getElementById('whackScore');
+    const timeEl = document.getElementById('whackTime');
+    const livesEl = document.getElementById('whackLives');
+    const comboEl = document.getElementById('whackCombo');
+    const comboValEl = document.getElementById('whackComboVal');
+    const menuOverlay = document.getElementById('whackMenuOverlay');
+    const gameOverOverlay = document.getElementById('whackGameOverOverlay');
+    const hud = document.getElementById('whackHud');
+    if (scoreEl) scoreEl.textContent = score;
+    if (timeEl) {
+        timeEl.textContent = Math.ceil(timeLeft);
+        timeEl.style.color = timeLeft < 10 ? '#ef4444' : '';
+    }
+    if (livesEl) livesEl.textContent = lives;
+    if (comboEl) {
+        comboEl.style.display = combo > 1 ? 'block' : 'none';
+        if (comboValEl) comboValEl.textContent = combo;
+    }
+    if (menuOverlay) menuOverlay.style.display = gameState === "menu" ? "block" : "none";
+    if (gameOverOverlay) gameOverOverlay.style.display = gameState === "gameOver" ? "block" : "none";
+    if (hud) hud.style.visibility = gameState === "playing" ? "visible" : "hidden";
+    if (gameState === "gameOver") {
+        const titleEl = document.getElementById('whackGameOverTitle');
+        const finalScoreEl = document.getElementById('whackFinalScore');
+        const newBestEl = document.getElementById('whackNewBest');
+        const bestScoreEl = document.getElementById('whackBestScore');
+        const playBtn = document.getElementById('whackPlayAgainBtn');
+        const countdownEl = document.getElementById('whackCountdown');
+        if (titleEl) titleEl.textContent = timeLeft <= 0 ? "Time's Up!" : "Game Over!";
+        if (finalScoreEl) finalScoreEl.textContent = score;
+        const isNewBest = score > bestScore && score > 0;
+        if (isNewBest) {
+            bestScore = score;
+            try { localStorage.setItem("whackBestScore", score.toString()); } catch (e) {}
+        }
+        const displayBest = Math.max(score, bestScore);
+        if (bestScoreEl) bestScoreEl.textContent = displayBest;
+        if (newBestEl) newBestEl.style.display = isNewBest ? "block" : "none";
+        const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
+        const timeRemaining = Math.max(0, GAME_OVER_DELAY - timeSinceGameOver);
+        if (playBtn) {
+            playBtn.style.display = timeRemaining <= 0 ? "block" : "none";
+        }
+        if (countdownEl) {
+            countdownEl.textContent = timeRemaining > 0 ? `Wait ${Math.ceil(timeRemaining)}s to play again` : "";
+        }
+    }
+}
+
 function drawHUD() {
-    // HUD background (semi-transparent)
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fillRect(0, 0, GAME_WIDTH, 100);
-    
-    // Score - use pixel-aligned coordinates for crisp text
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 24px Arial";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    // Round coordinates to avoid sub-pixel rendering
-    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(35));
-
-    // Time - use pixel-aligned coordinates for crisp text
-    ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    const timeColor = timeLeft < 10 ? "#ef4444" : "#fff";
-    ctx.fillStyle = timeColor;
-    ctx.fillText(`Time: ${Math.ceil(timeLeft)}`, Math.round(GAME_WIDTH - 20), Math.round(35));
-
-    // Draw heart icons for lives (hearts only, no text)
-    function drawHeart(x, y, size, filled, color) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(size / 20, size / 20); // Normalize to size 20
-        
-        ctx.beginPath();
-        
-        // Heart shape using bezier curves for smooth heart shape
-        // Top left curve
-        ctx.moveTo(0, 5);
-        ctx.bezierCurveTo(-5, -5, -10, -5, -10, 0);
-        ctx.bezierCurveTo(-10, 5, 0, 12, 0, 12);
-        
-        // Top right curve
-        ctx.bezierCurveTo(0, 12, 10, 5, 10, 0);
-        ctx.bezierCurveTo(10, -5, 5, -5, 0, 5);
-        
-        ctx.closePath();
-        
-        if (filled) {
-            // Fill the heart
-            ctx.fillStyle = color;
-            ctx.fill();
-            
-            // Add highlight for depth
-            ctx.fillStyle = "rgba(255,255,255,0.4)";
-            ctx.beginPath();
-            ctx.arc(-3, -2, 3, 0, Math.PI * 2);
-            ctx.fill();
-        } else {
-            // Draw outline only
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            ctx.fillStyle = color + "40"; // Add transparency
-            ctx.fill();
-        }
-        
-        ctx.restore();
-    }
-    
-    const heartStartX = GAME_WIDTH / 2 - (START_LIVES * 28) / 2; // Center the hearts
-    const heartY = 30;
-    const heartSize = 18;
-    
-    for (let i = 0; i < START_LIVES; i++) {
-        const heartX = heartStartX + i * 32;
-        const hasLife = i < lives;
-        
-        if (hasLife) {
-            // Draw full red heart for remaining lives
-            drawHeart(heartX, heartY, heartSize, true, "#ef4444");
-        } else {
-            // Draw empty/gray heart outline for lost lives
-            drawHeart(heartX, heartY, heartSize, false, "#666666");
-            
-            // Draw X mark for lost lives
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(heartX - heartSize * 0.5, heartY - heartSize * 0.4);
-            ctx.lineTo(heartX + heartSize * 0.5, heartY + heartSize * 0.4);
-            ctx.moveTo(heartX + heartSize * 0.5, heartY - heartSize * 0.4);
-            ctx.lineTo(heartX - heartSize * 0.5, heartY + heartSize * 0.4);
-            ctx.stroke();
-        }
-    }
-
-    // Combo display with animation - pixel-aligned for crisp text
-    if (combo > 1) {
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        const comboScale = 1 + Math.sin(Date.now() * 0.01) * 0.1;
-        ctx.save();
-        ctx.translate(Math.round(GAME_WIDTH / 2), Math.round(75));
-        ctx.scale(comboScale, comboScale);
-        ctx.fillStyle = "#facc15";
-        ctx.font = "bold 26px Arial";
-        ctx.strokeStyle = "#f59e0b";
-        ctx.lineWidth = 2;
-        ctx.strokeText(`Combo x${combo}`, 0, 0);
-        ctx.fillText(`Combo x${combo}`, 0, 0);
-        ctx.restore();
-    }
+    updateUI();
 }
 
 // Helper function to adjust brightness of a color
@@ -963,195 +918,7 @@ function adjustBrightness(color, amount) {
 }
 
 function drawOverlay() {
-    // Enable crisp text rendering
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-
-    if (gameState === "menu") {
-        // Semi-transparent overlay
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Title with glow effect - crisp rendering
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = "#d97706";
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 56px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText("WHACK", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
-        
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 40px Arial";
-        ctx.fillStyle = "#d97706";
-        ctx.fillText("A MOLE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
-        
-        // Instructions with better styling - crisp rendering
-        ctx.fillStyle = "rgba(229, 231, 235, 0.9)";
-        ctx.font = "20px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText("Click / Tap the moles to whack them!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 20));
-        
-        // Start button
-        const buttonWidth = 300;
-        const buttonHeight = 55;
-        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
-        const buttonY = GAME_HEIGHT / 2 + 80;
-        
-        // Check hover
-        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        
-        const scale = isHovered ? 1.05 : 1.0;
-        const scaledWidth = Math.round(buttonWidth * scale);
-        const scaledHeight = Math.round(buttonHeight * scale);
-        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
-        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
-        
-        // Draw button with gradient (brown/orange theme)
-        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
-        if (isHovered) {
-            gradient.addColorStop(0, "#d97706");
-            gradient.addColorStop(1, adjustBrightness("#d97706", -25));
-        } else {
-            gradient.addColorStop(0, adjustBrightness("#d97706", -40));
-            gradient.addColorStop(1, adjustBrightness("#d97706", -60));
-        }
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        
-        // Button border
-        ctx.strokeStyle = isHovered ? "#d97706" : "rgba(148, 163, 184, 0.4)";
-        ctx.lineWidth = isHovered ? 3 : 2;
-        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
-                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
-        
-        // Button text - crisp rendering
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 22px Arial";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillText("Press to Start", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
-    }
-
-    if (gameState === "gameOver") {
-        // Semi-transparent overlay
-        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Title with color based on score - crisp rendering
-        const titleColor = score > 0 ? "#d97706" : "#ef4444";
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = titleColor;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 48px Arial";
-        
-        // Show different message based on how game ended
-        if (timeLeft <= 0) {
-            ctx.fillText("Time's Up!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
-        } else {
-            ctx.fillText("Game Over!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
-        }
-        
-        ctx.shadowBlur = 0;
-        
-        // Score display with better styling - crisp rendering
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 28px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`Final Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
-        
-        // Best score display
-        let bestScore = 0;
-        try {
-            bestScore = parseInt(localStorage.getItem("whackBestScore") || "0", 10);
-        } catch (e) {
-            bestScore = 0;
-        }
-        
-        // Check if new best score
-        const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
-        const timeRemaining = Math.max(0, GAME_OVER_DELAY - timeSinceGameOver);
-        
-        if (score > bestScore && score > 0) {
-            // Save new best score
-            try {
-                localStorage.setItem("whackBestScore", score.toString());
-            } catch (e) {
-                // Ignore
-            }
-            ctx.fillStyle = "#fbbf24";
-            ctx.font = "bold 24px Arial";
-            ctx.textBaseline = "middle";
-            ctx.fillText("New Best Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
-        }
-        
-        ctx.fillStyle = "rgba(229, 231, 235, 0.8)";
-        ctx.font = "bold 22px Arial";
-        ctx.textBaseline = "middle";
-        const displayBest = score > bestScore ? score : bestScore;
-        ctx.fillText(`Best: ${displayBest}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 30));
-        
-        // Play again button (only show if countdown is done)
-        if (timeRemaining <= 0) {
-            const buttonWidth = 300;
-            const buttonHeight = 55;
-            const buttonX = (GAME_WIDTH - buttonWidth) / 2;
-            const buttonY = GAME_HEIGHT / 2 + 90;
-            
-            // Check hover
-            const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-            
-            const scale = isHovered ? 1.05 : 1.0;
-            const scaledWidth = Math.round(buttonWidth * scale);
-            const scaledHeight = Math.round(buttonHeight * scale);
-            const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
-            const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
-            
-            // Draw button with gradient (brown/orange theme)
-            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
-            if (isHovered) {
-                gradient.addColorStop(0, "#d97706");
-                gradient.addColorStop(1, adjustBrightness("#d97706", -25));
-            } else {
-                gradient.addColorStop(0, adjustBrightness("#d97706", -40));
-                gradient.addColorStop(1, adjustBrightness("#d97706", -60));
-            }
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-            
-            // Button border
-            ctx.strokeStyle = isHovered ? "#d97706" : "rgba(148, 163, 184, 0.4)";
-            ctx.lineWidth = isHovered ? 3 : 2;
-            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
-                          scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
-            
-            // Button text - crisp rendering
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 22px Arial";
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "center";
-            ctx.fillText("Play Again", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
-        } else {
-            // Show countdown message
-            ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
-            ctx.font = "18px Arial";
-            ctx.textBaseline = "bottom";
-            ctx.fillText(`Wait ${Math.ceil(timeRemaining)}s to play again`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
-        }
-    }
+    // UI is in HTML; updateUI() updates the overlay (called from drawHUD)
 }
 
 // ===== LOOP =====
@@ -1194,27 +961,34 @@ function gameLoop(timestamp) {
 
 // ===== INIT =====
 setupHoles();
-canvas.addEventListener("mousedown", () => {
+
+function tryStartOrRestart() {
     if (gameState === "menu") {
         startGame();
     } else if (gameState === "gameOver") {
-        // Check if 3 seconds have passed since game over
         const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
         if (timeSinceGameOver >= GAME_OVER_DELAY) {
             startGame();
         }
     }
-});
-canvas.addEventListener("touchstart", () => {
-    if (gameState === "menu") {
-        startGame();
-    } else if (gameState === "gameOver") {
-        // Check if 3 seconds have passed since game over
-        const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
-        if (timeSinceGameOver >= GAME_OVER_DELAY) {
-            startGame();
-        }
-    }
+}
+
+canvas.addEventListener("mousedown", tryStartOrRestart);
+canvas.addEventListener("touchstart", (e) => {
+    tryStartOrRestart();
 }, { passive: false });
+
+// Wire HTML buttons
+(function() {
+    const startBtn = document.getElementById('whackStartBtn');
+    if (startBtn) startBtn.addEventListener('click', startGame);
+    const playAgainBtn = document.getElementById('whackPlayAgainBtn');
+    if (playAgainBtn) playAgainBtn.addEventListener('click', function() {
+        const timeSinceGameOver = (Date.now() - gameOverTime) / 1000;
+        if (timeSinceGameOver >= GAME_OVER_DELAY) {
+            startGame();
+        }
+    });
+})();
 
 requestAnimationFrame(gameLoop);

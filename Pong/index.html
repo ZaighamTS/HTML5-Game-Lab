@@ -71,10 +71,105 @@
             opacity: 1;
         }
 
+        /* UI Overlay - positioned absolutely over canvas */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allow clicks to pass through to canvas */
+            z-index: 10;
+        }
+
+        /* Score styling */
+        .score {
+            position: absolute;
+            top: 50px;
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        .score-left {
+            left: 25%;
+            transform: translateX(-50%);
+        }
+
+        .score-right {
+            right: 25%;
+            transform: translateX(50%);
+        }
+
+        /* Menu and Game Over overlays */
+        .menu-overlay,
+        .game-over-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .menu-title {
+            font-size: 60px;
+            font-weight: bold;
+            color: white;
+            margin: 0 0 20px 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        .menu-subtitle {
+            font-size: 28px;
+            color: white;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        .winner-text {
+            font-size: 40px;
+            font-weight: bold;
+            color: white;
+            margin: 0 0 20px 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
         @media (orientation: landscape) {
             .game-container {
                 max-width: calc(100vw - 40px);
                 max-height: calc(100vh - 40px);
+            }
+        }
+
+        /* Responsive font sizes */
+        @media (max-width: 768px) {
+            .score {
+                font-size: 32px;
+                top: 30px;
+            }
+            .menu-title {
+                font-size: 48px;
+            }
+            .menu-subtitle {
+                font-size: 22px;
+            }
+            .winner-text {
+                font-size: 32px;
             }
         }
     </style>
@@ -86,6 +181,25 @@
 
     <div class="game-container">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- UI Overlay - positioned absolutely over canvas -->
+        <div class="ui-overlay">
+            <!-- Scores -->
+            <div class="score score-left" id="leftScore">0</div>
+            <div class="score score-right" id="rightScore">0</div>
+            
+            <!-- Menu Overlay -->
+            <div class="menu-overlay" id="menuOverlay">
+                <h1 class="menu-title">PONG</h1>
+                <p class="menu-subtitle">Press SPACE or Tap to Start</p>
+            </div>
+            
+            <!-- Game Over Overlay -->
+            <div class="game-over-overlay" id="gameOverOverlay" style="display: none;">
+                <h2 class="winner-text" id="winnerText"></h2>
+                <p class="menu-subtitle">Press SPACE or Tap to Play Again</p>
+            </div>
+        </div>
     </div>
     <script>
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
@@ -120,23 +234,20 @@
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
             
-            // Set canvas internal resolution (actual pixel dimensions)
-            // Multiply by devicePixelRatio for crisp rendering on high-DPI displays
-            canvas.width = gameWidth * dpr;
-            canvas.height = gameHeight * dpr;
+            // Set canvas internal resolution to fixed game dimensions
+            // Keep at native resolution for crisp game rendering (no scaling)
+            canvas.width = gameWidth;
+            canvas.height = gameHeight;
             
-            // Scale the context to match the game's coordinate system
-            // IMPORTANT: Setting canvas.width/height resets the context, so we must
-            // get a fresh context reference and apply the scale
+            // Get context and reset transform (no scaling needed - fixed resolution)
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform first
-            ctx.scale(dpr, dpr);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             
-            // Enable text rendering optimizations for crisp text
-            ctx.textBaseline = 'top';
-            ctx.textAlign = 'center';
+            // Enable image smoothing for better graphics quality
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             
-            // Store DPR for game.js to use
+            // Store DPR for reference (not used for scaling anymore)
             canvas._dpr = dpr;
             
             // Notify game.js to refresh its context if it has loaded

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Match - HTML5 Game Lab</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: radial-gradient(circle at top, #1f2933, #020617);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #e5e7eb;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        .ui-panel {
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #e5e7eb;
+        }
+        .score span {
+            color: #38bdf8;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 8px 16px;
+            background: rgba(15, 23, 42, 0.8);
+            color: #e5e7eb;
+            text-decoration: none;
+            border-radius: 6px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            transition: background 0.2s;
+        }
+        .back-link:hover {
+            background: rgba(15, 23, 42, 1);
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back to Games</a>
+    <div id="game-container">
+        <div class="ui-panel">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="score">Turns: <span id="turns">0</span></div>
+            <button id="restart-btn" style="display: none;">Restart Game</button>
+        </div>
+        <div id="phaser-game"></div>
+    </div>
+
+    <!-- Phaser.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

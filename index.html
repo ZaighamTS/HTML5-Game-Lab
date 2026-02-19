@@ -29,7 +29,7 @@
 <body>
     <h1>HTML5 Game Lab</h1>
     <p class="subtitle">Tap a game to play. Works on desktop & mobile.</p>
-    <p class="subtitle">version: 26.1.27.1</p>
+    <p class="subtitle">version: 26.2.18.1</p>
 
     <!-- Loading indicator -->
     <div id="loader" class="loader" style="display: none;">
@@ -142,6 +142,28 @@
     </div>
     <div class="card-footer">
         <button class="play-btn" onclick="openGame('Whack/Index.html')" aria-label="Play Whack-a-Mole game">
+            <span class="icon" aria-hidden="true">▶</span>
+            <span>Play</span>
+        </button>
+        <span class="tag">Mobile friendly</span>
+    </div>
+</article>
+
+<!-- Game: Memory Match -->
+<article class="game-card" role="article" aria-label="Memory Match game">
+    <div class="game-thumb" aria-hidden="true">
+        MEMORY
+    </div>
+    <div class="game-info">
+        <h2>Memory Match</h2>
+        <p>Flip cards to find matching pairs. Test your memory skills!</p>
+        <div class="pill" aria-label="Game type: Phaser.js Memory">
+            <span class="dot" aria-hidden="true"></span>
+            <span>Phaser.js • Memory</span>
+        </div>
+    </div>
+    <div class="card-footer">
+        <button class="play-btn" onclick="openGame('MemoryMatch/index.html')" aria-label="Play Memory Match game">
             <span class="icon" aria-hidden="true">▶</span>
             <span>Play</span>
         </button>

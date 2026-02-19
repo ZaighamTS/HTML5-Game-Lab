@@ -6,57 +6,15 @@ const ctx = canvas.getContext("2d");
 const GAME_WIDTH = 480;
 const GAME_HEIGHT = 720;
 
-// Apply device pixel ratio scaling for crisp rendering on high-DPI displays
-// This ensures text and graphics render sharply
+// Canvas at fixed resolution; UI is in HTML for crisp text
 function applyDPRScaling() {
-    // Get the DPR that was set by resizeCanvas, or calculate it
-    const dpr = canvas._dpr || window.devicePixelRatio || 1;
-    
-    // Always ensure the context is properly scaled
-    // The canvas dimensions should be GAME_WIDTH * dpr x GAME_HEIGHT * dpr
-    if (canvas.width === GAME_WIDTH * dpr && canvas.height === GAME_HEIGHT * dpr) {
-        // Canvas is properly sized, ensure context is scaled
-        // Check if scale is already applied (getTransform might not be available in all browsers)
-        let needsScale = true;
-        if (ctx.getTransform) {
-            const currentTransform = ctx.getTransform();
-            // Check if scale is already applied (within small tolerance)
-            if (Math.abs(currentTransform.a - dpr) < 0.01 && Math.abs(currentTransform.d - dpr) < 0.01) {
-                needsScale = false;
-            }
-        }
-        if (needsScale) {
-            // Scale not applied or incorrect, reapply it
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(dpr, dpr);
-        }
-    } else if (canvas.width !== GAME_WIDTH || canvas.height !== GAME_HEIGHT) {
-        // Canvas has been resized but might not have DPR applied yet
-        // Calculate the scale that was applied
-        const scaleX = canvas.width / GAME_WIDTH;
-        const scaleY = canvas.height / GAME_HEIGHT;
-        // Reset transform and apply scale
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(scaleX, scaleY);
-    }
-    
-    // Optimize text rendering for crisp text
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    
-    // Enable better text rendering (but keep image smoothing for graphics)
     if (ctx.imageSmoothingEnabled !== undefined) {
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
     }
 }
-
-// Apply scaling immediately
 applyDPRScaling();
-
-// Expose refresh function for resizeCanvas to call
-window.refreshGameContext = function() {
-    applyDPRScaling();
-};
+window.refreshGameContext = function() { applyDPRScaling(); };
 
 // ====== SETTINGS ======
 const GRAVITY = 1300;          // pixels per second^2
@@ -742,17 +700,7 @@ function drawBird() {
 
 
 function drawHUD() {
-    // Crisp text rendering for HUD
-    ctx.fillStyle = "#e5e7eb";
-    ctx.font = "bold 28px Arial";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(40));
-
-    ctx.font = "bold 18px Arial";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH - 20), Math.round(34));
+    // UI is in HTML; updateUI() updates the overlay
 }
 
 // Helper function to adjust brightness of a color
@@ -764,178 +712,33 @@ function adjustBrightness(color, amount) {
     return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
-function drawOverlay() {
-    // Enable crisp text rendering
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "center";
-
-    if (gameState === "menu") {
-        // Semi-transparent overlay
-        ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Title with glow effect
-        const pulse = Math.sin(animationTime * 2) * 0.05 + 1;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "#38bdf8";
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        // Title with glow effect - crisp rendering
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 52px Arial";
-        ctx.fillText("FLAPPY", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
-        
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 36px Arial";
-        ctx.fillStyle = "#38bdf8";
-        ctx.fillText("CLONE", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
-        
-        // Instructions with better styling - crisp rendering
-        ctx.fillStyle = "rgba(229, 231, 235, 0.9)";
-        ctx.font = "20px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText("Tap / Click / Space / ↑ to flap", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 20));
-        
-        // Start button
-        const buttonWidth = 280;
-        const buttonHeight = 55;
-        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
-        const buttonY = GAME_HEIGHT / 2 + 70;
-        
-        // Check hover
-        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        
-        const scale = isHovered ? 1.05 : 1.0;
-        const scaledWidth = Math.round(buttonWidth * scale);
-        const scaledHeight = Math.round(buttonHeight * scale);
-        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
-        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
-        
-        // Draw button with gradient
-        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
-        if (isHovered) {
-            gradient.addColorStop(0, "#38bdf8");
-            gradient.addColorStop(1, adjustBrightness("#38bdf8", -25));
-        } else {
-            gradient.addColorStop(0, adjustBrightness("#38bdf8", -40));
-            gradient.addColorStop(1, adjustBrightness("#38bdf8", -60));
-        }
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        
-        // Button border
-        ctx.strokeStyle = isHovered ? "#38bdf8" : "rgba(148, 163, 184, 0.4)";
-        ctx.lineWidth = isHovered ? 3 : 2;
-        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
-                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
-        
-        // Button text - crisp rendering
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 22px Arial";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillText("Press to Start", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
-    }
-
+function updateUI() {
+    const scoreEl = document.getElementById('flappyScore');
+    const bestEl = document.getElementById('flappyBest');
+    const menuOverlay = document.getElementById('flappyMenuOverlay');
+    const gameOverOverlay = document.getElementById('flappyGameOverOverlay');
+    const hud = document.getElementById('flappyHud');
+    if (scoreEl) scoreEl.textContent = score;
+    if (bestEl) bestEl.textContent = bestScore;
+    if (menuOverlay) menuOverlay.style.display = gameState === "menu" ? "block" : "none";
+    if (gameOverOverlay) gameOverOverlay.style.display = gameState === "gameOver" ? "block" : "none";
+    if (hud) hud.style.visibility = (gameState === "playing") ? "visible" : "hidden";
     if (gameState === "gameOver") {
-        // Semi-transparent overlay
-        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Title with color based on score
-        const titleColor = score === bestScore && score > 0 ? "#22c55e" : "#ef4444";
-        ctx.shadowBlur = 25;
-        ctx.shadowColor = titleColor;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        
-        // Title - crisp rendering
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 48px Arial";
-        ctx.fillText("Game Over", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 120));
-        
-        ctx.shadowBlur = 0;
-        
-        // Score display with better styling - crisp rendering
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 28px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
-        
-        // Best score with highlight if it's a new record - crisp rendering
-        if (score === bestScore && score > 0) {
-            ctx.fillStyle = "#fbbf24";
-            ctx.font = "bold 24px Arial";
-            ctx.textBaseline = "middle";
-            ctx.fillText("New Best Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
-        }
-        
-        ctx.fillStyle = "rgba(229, 231, 235, 0.8)";
-        ctx.font = "bold 22px Arial";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`Best: ${bestScore}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 30));
-        
-        // Play again button
-        const buttonWidth = 300;
-        const buttonHeight = 55;
-        const buttonX = (GAME_WIDTH - buttonWidth) / 2;
-        const buttonY = GAME_HEIGHT / 2 + 90;
-        
-        // Check hover
-        const isHovered = mouseX >= buttonX && mouseX < buttonX + buttonWidth &&
-                          mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        
-        const scale = isHovered ? 1.05 : 1.0;
-        const scaledWidth = Math.round(buttonWidth * scale);
-        const scaledHeight = Math.round(buttonHeight * scale);
-        const scaledX = Math.round(buttonX - (scaledWidth - buttonWidth) / 2);
-        const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
-        
-        // Draw button with gradient
-        const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
-        if (isHovered) {
-            gradient.addColorStop(0, "#22c55e");
-            gradient.addColorStop(1, adjustBrightness("#22c55e", -25));
-        } else {
-            gradient.addColorStop(0, adjustBrightness("#22c55e", -40));
-            gradient.addColorStop(1, adjustBrightness("#22c55e", -60));
-        }
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-        
-        // Button border
-        ctx.strokeStyle = isHovered ? "#22c55e" : "rgba(148, 163, 184, 0.4)";
-        ctx.lineWidth = isHovered ? 3 : 2;
-        const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-        ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, 
-                      scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
-        
-        // Button text - crisp rendering
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 22px Arial";
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        ctx.fillText("Play Again", Math.round(GAME_WIDTH / 2), Math.round(buttonY + buttonHeight / 2));
-        
-        // Instructions - crisp rendering
-        ctx.fillStyle = "rgba(148, 163, 184, 0.7)";
-        ctx.font = "18px Arial";
-        ctx.textBaseline = "bottom";
-        ctx.fillText("Press or tap to play again", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
+        const goScore = document.getElementById('flappyGameOverScore');
+        const goBest = document.getElementById('flappyGameOverBest');
+        const newBest = document.getElementById('flappyNewBest');
+        if (goScore) goScore.textContent = score;
+        if (goBest) goBest.textContent = bestScore;
+        if (newBest) newBest.style.display = (score === bestScore && score > 0) ? "block" : "none";
     }
 }
 
+function drawOverlay() {
+    // UI is in HTML; updateUI() updates the overlay
+    updateUI();
+}
+
 function draw() {
-    // Ensure context scaling is always applied (safeguard)
     applyDPRScaling();
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
@@ -945,6 +748,14 @@ function draw() {
     drawHUD();
     drawOverlay();
 }
+
+// Wire HTML buttons
+(function() {
+    const startBtn = document.getElementById('flappyStartBtn');
+    if (startBtn) startBtn.addEventListener('click', startGame);
+    const playAgainBtn = document.getElementById('flappyPlayAgainBtn');
+    if (playAgainBtn) playAgainBtn.addEventListener('click', function() { resetGame(); startGame(); });
+})();
 
 // ====== MAIN LOOP ======
 function gameLoop(timestamp) {

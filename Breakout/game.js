@@ -6,56 +6,23 @@ const ctx = canvas.getContext("2d");
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
-// Apply device pixel ratio scaling for crisp rendering on high-DPI displays
-// This ensures text and graphics render sharply
+// Canvas at fixed resolution; UI is in HTML for crisp text
 function applyDPRScaling() {
-    // Get the DPR that was set by resizeCanvas, or calculate it
-    const dpr = canvas._dpr || window.devicePixelRatio || 1;
-    
-    // Always ensure the context is properly scaled
-    // The canvas dimensions should be GAME_WIDTH * dpr x GAME_HEIGHT * dpr
-    if (canvas.width === GAME_WIDTH * dpr && canvas.height === GAME_HEIGHT * dpr) {
-        // Canvas is properly sized, ensure context is scaled
-        // Check if scale is already applied (getTransform might not be available in all browsers)
-        let needsScale = true;
-        if (ctx.getTransform) {
-            const currentTransform = ctx.getTransform();
-            // Check if scale is already applied (within small tolerance)
-            if (Math.abs(currentTransform.a - dpr) < 0.01 && Math.abs(currentTransform.d - dpr) < 0.01) {
-                needsScale = false;
-            }
-        }
-        if (needsScale) {
-            // Scale not applied or incorrect, reapply it
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(dpr, dpr);
-        }
-    } else if (canvas.width !== GAME_WIDTH || canvas.height !== GAME_HEIGHT) {
-        // Canvas has been resized but might not have DPR applied yet
-        // Calculate the scale that was applied
-        const scaleX = canvas.width / GAME_WIDTH;
-        const scaleY = canvas.height / GAME_HEIGHT;
-        // Reset transform and apply scale
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(scaleX, scaleY);
-    }
-    
-    // Optimize text rendering for crisp text
-    ctx.textBaseline = 'top';
-    ctx.textAlign = 'left';
-    
-    // Enable better text rendering (but keep image smoothing for graphics)
     if (ctx.imageSmoothingEnabled !== undefined) {
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
     }
 }
-
-// Apply scaling immediately
 applyDPRScaling();
+window.refreshGameContext = function() { applyDPRScaling(); };
 
-// Expose refresh function for resizeCanvas to call
-window.refreshGameContext = function() {
-    applyDPRScaling();
+// Expose for HTML buttons
+window.startBreakoutLevel = function(n) {
+    selectedLevel = n;
+    startNewGame();
+};
+window.goToBreakoutLevelSelect = function() {
+    gameState = "levelSelect";
 };
 
 // ====== SETTINGS ======
@@ -1331,125 +1298,45 @@ function drawBricks() {
     }
 }
 
+function updateUI() {
+    const hud = document.getElementById('breakoutHud');
+    const levelSelect = document.getElementById('levelSelectOverlay');
+    const menuOverlay = document.getElementById('breakoutMenuOverlay');
+    const pausedOverlay = document.getElementById('breakoutPausedOverlay');
+    const gameEndOverlay = document.getElementById('breakoutGameEndOverlay');
+    if (!levelSelect) return;
+    
+    document.getElementById('breakoutScore').textContent = score;
+    document.getElementById('breakoutLevel').textContent = selectedLevel;
+    document.getElementById('breakoutLives').textContent = lives;
+    document.getElementById('breakoutHighScore').textContent = highScore;
+    
+    levelSelect.style.display = gameState === "levelSelect" ? "block" : "none";
+    menuOverlay.style.display = gameState === "menu" ? "block" : "none";
+    pausedOverlay.style.display = gameState === "paused" ? "block" : "none";
+    gameEndOverlay.style.display = gameState === "gameEnd" ? "block" : "none";
+    if (hud) hud.style.visibility = (gameState === "playing" || gameState === "paused") ? "visible" : "hidden";
+    
+    if (gameState === "gameEnd") {
+        const titleEl = document.getElementById('breakoutGameEndTitle');
+        const scoreEl = document.getElementById('breakoutGameEndScore');
+        const newHighEl = document.getElementById('breakoutNewHighScore');
+        if (titleEl) titleEl.textContent = gameEndWon ? `Level ${selectedLevel} Complete!` : "Game Over";
+        if (titleEl) titleEl.style.color = gameEndWon ? "#22c55e" : "#ef4444";
+        if (scoreEl) scoreEl.textContent = `Score: ${score}`;
+        if (newHighEl) newHighEl.style.display = (score === highScore && score > 0) ? "block" : "none";
+    }
+}
+
 function draw() {
-    // Ensure context scaling is always applied (safeguard)
     applyDPRScaling();
     
     // Background
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Level selection menu
     if (gameState === "levelSelect") {
-        // Enable crisp text rendering
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        
-        // Title - crisp rendering
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "bold 48px Arial";
-        // Use Math.round for pixel-perfect alignment
-        ctx.fillText("SELECT LEVEL", Math.round(GAME_WIDTH / 2), Math.round(80));
-        
-        // Button configuration - evenly spaced
-        const buttonWidth = 400;
-        const buttonHeight = 60;
-        const buttonSpacing = 25; // Consistent spacing between buttons
-        const totalHeight = (buttonHeight * 3) + (buttonSpacing * 2); // Total height of all buttons + spacing
-        const startY = (GAME_HEIGHT - totalHeight) / 2; // Center the button group vertically
-        const startX = (GAME_WIDTH - buttonWidth) / 2; // Center horizontally
-        
-        // Define buttons with consistent spacing
-        const buttons = [
-            { 
-                y: startY, 
-                text: "1. Rectangular Bricks", 
-                subtitle: "5 rows × 10 columns",
-                color: "#38bdf8", 
-                index: 0 
-            },
-            { 
-                y: startY + buttonHeight + buttonSpacing, 
-                text: "2. Triangular Bricks", 
-                subtitle: "Geometric patterns",
-                color: "#22c55e", 
-                index: 1 
-            },
-            { 
-                y: startY + (buttonHeight + buttonSpacing) * 2, 
-                text: "3. Circular Bricks", 
-                subtitle: "Concentric circles",
-                color: "#eab308", 
-                index: 2 
-            }
-        ];
-        
-        buttons.forEach((btn, idx) => {
-            const isSelected = selectedLevelIndex === idx;
-            const isHovered = mouseX >= startX && mouseX < startX + buttonWidth &&
-                             mouseY >= btn.y && mouseY < btn.y + buttonHeight;
-            
-            // Calculate effects
-            const glowIntensity = isSelected ? 0.9 : (isHovered ? 0.6 : 0.3);
-            const scale = isSelected ? 1.03 : (isHovered ? 1.01 : 1.0);
-            const scaledWidth = buttonWidth * scale;
-            const scaledHeight = buttonHeight * scale;
-            // Use Math.round for pixel-perfect alignment
-            const scaledX = Math.round(startX - (scaledWidth - buttonWidth) / 2);
-            const scaledY = Math.round(btn.y - (scaledHeight - buttonHeight) / 2);
-            const scaledWidthRounded = Math.round(scaledWidth);
-            const scaledHeightRounded = Math.round(scaledHeight);
-            
-            // Draw glow shadow
-            ctx.shadowBlur = 15 + glowIntensity * 20;
-            ctx.shadowColor = btn.color;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-            
-            // Draw button background with gradient
-            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidthRounded, scaledY + scaledHeightRounded);
-            if (isSelected || isHovered) {
-                gradient.addColorStop(0, btn.color);
-                gradient.addColorStop(1, adjustBrightness(btn.color, -25));
-            } else {
-                gradient.addColorStop(0, adjustBrightness(btn.color, -50));
-                gradient.addColorStop(1, adjustBrightness(btn.color, -70));
-            }
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(scaledX, scaledY, scaledWidthRounded, scaledHeightRounded);
-            
-            // Reset shadow
-            ctx.shadowBlur = 0;
-            
-            // Draw border - use half-pixel offset for crisp 1px borders
-            ctx.strokeStyle = isSelected || isHovered ? btn.color : "rgba(148, 163, 184, 0.4)";
-            ctx.lineWidth = isSelected ? 3 : (isHovered ? 2 : 1);
-            // Adjust for crisp borders (half-pixel offset for odd line widths)
-            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, scaledWidthRounded - borderOffset * 2, scaledHeightRounded - borderOffset * 2);
-            
-            // Draw text - crisp rendering with pixel-perfect alignment
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 22px Arial";
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "center";
-            // Use Math.round for pixel-perfect alignment to avoid blurriness
-            ctx.fillText(btn.text, Math.round(GAME_WIDTH / 2), Math.round(btn.y + buttonHeight / 2 - 8));
-            
-            // Draw subtitle
-            ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-            ctx.font = "16px Arial";
-            ctx.fillText(btn.subtitle, Math.round(GAME_WIDTH / 2), Math.round(btn.y + buttonHeight / 2 + 12));
-        });
-        
-        // Instructions - crisp rendering
-        ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
-        ctx.font = "18px Arial";
-        ctx.textBaseline = "bottom";
-        ctx.textAlign = "center";
-        ctx.fillText("Use Arrow Keys to select, SPACE/ENTER to start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 35));
-        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 10));
+        updateUI();
         return;
     }
 
@@ -1475,149 +1362,7 @@ function draw() {
     ctx.fillStyle = "#38bdf8";
     ctx.fill();
 
-    // HUD: score, lives, level, high score - crisp rendering
-    ctx.fillStyle = "#e5e7eb";
-    ctx.font = "18px Arial";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(`Score: ${score}`, Math.round(20), Math.round(24));
-    ctx.fillText(`Level: ${selectedLevel}`, Math.round(20), Math.round(48));
-    ctx.textAlign = "right";
-    ctx.fillText(`Lives: ${lives}`, Math.round(GAME_WIDTH - 20), Math.round(24));
-    ctx.fillText(`High Score: ${highScore}`, Math.round(GAME_WIDTH - 20), Math.round(48));
-
-    // State overlays
-    ctx.textAlign = "center";
-    if (gameState === "menu") {
-        ctx.font = "40px Arial";
-        ctx.fillText("BREAKOUT", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 40));
-        ctx.font = "22px Arial";
-        ctx.fillText("Arrow keys or mouse to move", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 5));
-        ctx.fillText("Press SPACE to Start", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 35));
-        ctx.fillText("Press P to Pause", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 65));
-    } else if (gameState === "paused") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "36px Arial";
-        ctx.fillText("PAUSED", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 10));
-        ctx.font = "22px Arial";
-        ctx.fillText("Press SPACE or P to Resume", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 + 25));
-    } else if (gameState === "gameEnd") {
-        // Unified game end panel for both win and lose
-        ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
-        // Enable crisp text rendering
-        ctx.textBaseline = "middle";
-        ctx.textAlign = "center";
-        
-        // Title - different text based on win/lose
-        ctx.fillStyle = gameEndWon ? "#22c55e" : "#ef4444";
-        ctx.font = "bold 48px Arial";
-        const titleText = gameEndWon ? `Level ${selectedLevel} Complete!` : "Game Over";
-        ctx.fillText(titleText, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 100));
-        
-        // Score information - crisp rendering
-        ctx.fillStyle = "#e5e7eb";
-        ctx.font = "24px Arial";
-        ctx.fillText(`Score: ${score}`, Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 50));
-        
-        // High score if applicable
-        if (score === highScore && score > 0) {
-            ctx.fillStyle = "#fbbf24";
-            ctx.font = "20px Arial";
-            ctx.fillText("New High Score!", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT / 2 - 20));
-        }
-        
-        // Level selection buttons - evenly spaced and aligned
-        const buttonWidth = 200;
-        const buttonHeight = 45;
-        const buttonSpacing = 20;
-        const totalWidth = (buttonWidth * 3) + (buttonSpacing * 2);
-        const startX = (GAME_WIDTH - totalWidth) / 2;
-        const buttonY = GAME_HEIGHT / 2 + 30;
-        
-        // Check hover states
-        const level1Hovered = mouseX >= startX && mouseX < startX + buttonWidth &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level2Hovered = mouseX >= startX + buttonWidth + buttonSpacing && 
-                              mouseX < startX + buttonWidth * 2 + buttonSpacing &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const level3Hovered = mouseX >= startX + (buttonWidth + buttonSpacing) * 2 && 
-                              mouseX < startX + buttonWidth * 3 + buttonSpacing * 2 &&
-                              mouseY >= buttonY && mouseY < buttonY + buttonHeight;
-        const menuHovered = mouseX >= GAME_WIDTH / 2 - 100 && mouseX < GAME_WIDTH / 2 + 100 &&
-                            mouseY >= buttonY + buttonHeight + buttonSpacing && 
-                            mouseY < buttonY + buttonHeight * 2 + buttonSpacing;
-        
-        // Draw buttons with crisp rendering
-        const buttons = [
-            { x: startX, text: "Level 1", color: "#38bdf8", hovered: level1Hovered },
-            { x: startX + buttonWidth + buttonSpacing, text: "Level 2", color: "#22c55e", hovered: level2Hovered },
-            { x: startX + (buttonWidth + buttonSpacing) * 2, text: "Level 3", color: "#eab308", hovered: level3Hovered }
-        ];
-        
-        buttons.forEach(btn => {
-            const scale = btn.hovered ? 1.02 : 1.0;
-            const scaledWidth = Math.round(buttonWidth * scale);
-            const scaledHeight = Math.round(buttonHeight * scale);
-            const scaledX = Math.round(btn.x - (scaledWidth - buttonWidth) / 2);
-            const scaledY = Math.round(buttonY - (scaledHeight - buttonHeight) / 2);
-            
-            // Draw button background
-            const gradient = ctx.createLinearGradient(scaledX, scaledY, scaledX + scaledWidth, scaledY + scaledHeight);
-            gradient.addColorStop(0, btn.hovered ? btn.color : adjustBrightness(btn.color, -40));
-            gradient.addColorStop(1, btn.hovered ? adjustBrightness(btn.color, -20) : adjustBrightness(btn.color, -60));
-            ctx.fillStyle = gradient;
-            ctx.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
-            
-            // Draw border
-            ctx.strokeStyle = btn.hovered ? btn.color : "rgba(148, 163, 184, 0.4)";
-            ctx.lineWidth = btn.hovered ? 2 : 1;
-            const borderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-            ctx.strokeRect(scaledX + borderOffset, scaledY + borderOffset, scaledWidth - borderOffset * 2, scaledHeight - borderOffset * 2);
-            
-            // Draw text - crisp rendering
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 18px Arial";
-            ctx.textBaseline = "middle";
-            ctx.textAlign = "center";
-            ctx.fillText(btn.text, Math.round(btn.x + buttonWidth / 2), Math.round(buttonY + buttonHeight / 2));
-        });
-        
-        // Menu button
-        const menuX = Math.round(GAME_WIDTH / 2 - 100);
-        const menuY = Math.round(buttonY + buttonHeight + buttonSpacing);
-        const menuScale = menuHovered ? 1.02 : 1.0;
-        const menuScaledWidth = Math.round(200 * menuScale);
-        const menuScaledHeight = Math.round(buttonHeight * menuScale);
-        const menuScaledX = Math.round(menuX - (menuScaledWidth - 200) / 2);
-        const menuScaledY = Math.round(menuY - (menuScaledHeight - buttonHeight) / 2);
-        
-        const menuGradient = ctx.createLinearGradient(menuScaledX, menuScaledY, menuScaledX + menuScaledWidth, menuScaledY + menuScaledHeight);
-        menuGradient.addColorStop(0, menuHovered ? "#666" : "#444");
-        menuGradient.addColorStop(1, menuHovered ? "#555" : "#333");
-        ctx.fillStyle = menuGradient;
-        ctx.fillRect(menuScaledX, menuScaledY, menuScaledWidth, menuScaledHeight);
-        
-        ctx.strokeStyle = menuHovered ? "#888" : "rgba(148, 163, 184, 0.3)";
-        ctx.lineWidth = menuHovered ? 2 : 1;
-        const menuBorderOffset = ctx.lineWidth % 2 === 0 ? 0 : 0.5;
-        ctx.strokeRect(menuScaledX + menuBorderOffset, menuScaledY + menuBorderOffset, 
-                      menuScaledWidth - menuBorderOffset * 2, menuScaledHeight - menuBorderOffset * 2);
-        
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 18px Arial";
-        ctx.fillText("Menu", Math.round(GAME_WIDTH / 2), Math.round(menuY + buttonHeight / 2));
-        
-        // Instructions - crisp rendering
-        ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
-        ctx.font = "18px Arial";
-        ctx.textBaseline = "bottom";
-        ctx.fillText("Press 1, 2, or 3 to select level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 30));
-        ctx.fillText("Or click on a level", Math.round(GAME_WIDTH / 2), Math.round(GAME_HEIGHT - 5));
-    }
+    updateUI();
 }
 
 // ====== HELPER FUNCTIONS ======
