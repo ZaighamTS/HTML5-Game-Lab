@@ -71,6 +71,16 @@
             opacity: 1;
         }
 
+        /* Blur game (canvas + scores) behind title card until Start is pressed */
+        .game-container.title-card-active canvas {
+            filter: blur(12px);
+            opacity: 0.4;
+        }
+        .game-container.title-card-active .ui-overlay .score {
+            filter: blur(12px);
+            opacity: 0.4;
+        }
+
         /* UI Overlay - positioned absolutely over canvas */
         .ui-overlay {
             position: absolute;
@@ -107,7 +117,19 @@
         }
 
         /* Menu and Game Over overlays */
-        .menu-overlay,
+        .menu-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+            max-width: 420px;
+            padding: 30px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.95);
+            pointer-events: auto;
+        }
         .game-over-overlay {
             position: absolute;
             top: 50%;
@@ -118,15 +140,48 @@
         }
 
         .menu-title {
-            font-size: 60px;
+            font-size: 52px;
             font-weight: bold;
-            color: white;
-            margin: 0 0 20px 0;
+            color: #e5e7eb;
+            margin: 0 0 8px 0;
             font-family: Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-rendering: optimizeLegibility;
         }
+        .menu-subtitle-alt {
+            font-size: 22px;
+            color: #38bdf8;
+            margin: 0 0 16px 0;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .menu-instructions {
+            font-size: 18px;
+            color: rgba(229, 231, 235, 0.9);
+            margin: 8px 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .pong-btn {
+            padding: 16px 32px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid #38bdf8;
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            margin: 20px auto 0;
+            display: block;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+        .pong-btn:hover { transform: scale(1.05); }
 
         .menu-subtitle {
             font-size: 28px;
@@ -163,7 +218,17 @@
                 top: 30px;
             }
             .menu-title {
-                font-size: 48px;
+                font-size: 42px;
+            }
+            .menu-subtitle-alt {
+                font-size: 20px;
+            }
+            .menu-instructions {
+                font-size: 16px;
+            }
+            .pong-btn {
+                font-size: 20px;
+                padding: 14px 24px;
             }
             .menu-subtitle {
                 font-size: 22px;
@@ -179,7 +244,7 @@
         ← Back to Menu
     </button>
 
-    <div class="game-container">
+    <div class="game-container title-card-active" id="pongGameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         
         <!-- UI Overlay - positioned absolutely over canvas -->
@@ -188,10 +253,13 @@
             <div class="score score-left" id="leftScore">0</div>
             <div class="score score-right" id="rightScore">0</div>
             
-            <!-- Menu Overlay -->
+            <!-- Menu Overlay - title card with instructions -->
             <div class="menu-overlay" id="menuOverlay">
                 <h1 class="menu-title">PONG</h1>
-                <p class="menu-subtitle">Press SPACE or Tap to Start</p>
+                <p class="menu-subtitle-alt">vs CPU</p>
+                <p class="menu-instructions">Move paddle: W / S or mouse. Tap screen to move.</p>
+                <p class="menu-instructions">First to 7 wins.</p>
+                <button type="button" class="pong-btn" id="pongStartBtn">Press to Start</button>
             </div>
             
             <!-- Game Over Overlay -->
@@ -201,7 +269,20 @@
             </div>
         </div>
     </div>
+
     <script>
+        // Auto fullscreen on load and on first interaction (no prompt)
+        (function() {
+            function enterFullscreen() {
+                var elem = document.documentElement, body = document.body;
+                var methods = [function() { return elem.requestFullscreen && elem.requestFullscreen(); }, function() { return elem.webkitRequestFullscreen && elem.webkitRequestFullscreen(); }, function() { return elem.mozRequestFullScreen && elem.mozRequestFullScreen(); }, function() { return elem.msRequestFullscreen && elem.msRequestFullscreen(); }, function() { return body.requestFullscreen && body.requestFullscreen(); }, function() { return body.webkitRequestFullscreen && body.webkitRequestFullscreen(); }];
+                for (var i = 0; i < methods.length; i++) { try { var r = methods[i](); if (r && typeof r.then === 'function') { r.catch(function() {}); return; } if (r !== undefined) return; } catch (e) {} }
+            }
+            [0, 100, 300, 500].forEach(function(delay) { setTimeout(enterFullscreen, delay); });
+            document.addEventListener('click', function f() { enterFullscreen(); document.removeEventListener('click', f); }, { once: true });
+            document.addEventListener('touchstart', function f() { enterFullscreen(); document.removeEventListener('touchstart', f); }, { once: true });
+        })();
+
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
         function resizeCanvas() {
             const canvas = document.getElementById('gameCanvas');

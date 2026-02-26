@@ -112,6 +112,10 @@ canvas.addEventListener("click", (e) => {
     }
 });
 
+// Start button (title card) - for mobile and clarity
+const pongStartBtn = document.getElementById("pongStartBtn");
+if (pongStartBtn) pongStartBtn.addEventListener("click", startNewGame);
+
 // Mouse move on canvas
 canvas.addEventListener("mousemove", (e) => {
     // Only affect paddle while playing
@@ -152,7 +156,8 @@ function startNewGame() {
     resetBall(Math.random() < 0.5 ? 1 : -1);
     gameState = "playing";
     winnerText = "";
-    // Play game start sound
+    const container = document.getElementById("pongGameContainer");
+    if (container) container.classList.remove("title-card-active");
     gameStartSound.currentTime = 0;
     gameStartSound.play();
 }

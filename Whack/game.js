@@ -228,6 +228,8 @@ function createHitParticles(x, y) {
 
 // ===== GAME CONTROL =====
 function startGame() {
+    const container = document.getElementById("whackGameContainer");
+    if (container) container.classList.remove("title-card-active");
     score = 0;
     combo = 0;
     lives = START_LIVES;

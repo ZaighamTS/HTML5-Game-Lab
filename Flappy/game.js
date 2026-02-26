@@ -122,7 +122,8 @@ canvas.addEventListener("mousemove", (e) => {
 // ====== GAME CONTROL ======
 function startGame() {
     gameState = "playing";
-    // Play game start sound
+    const container = document.getElementById("flappyGameContainer");
+    if (container) container.classList.remove("title-card-active");
     gameStartSound.currentTime = 0;
     gameStartSound.play();
 }

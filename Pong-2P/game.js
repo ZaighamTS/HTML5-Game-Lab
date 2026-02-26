@@ -175,6 +175,10 @@ canvas.addEventListener("touchstart", (e) => {
     }
 }, { passive: false });
 
+// Start button (title card) - for mobile and clarity
+const pong2pStartBtn = document.getElementById("pong2pStartBtn");
+if (pong2pStartBtn) pong2pStartBtn.addEventListener("click", startNewGame);
+
 // === Helper Functions ===
 function startNewGame() {
     leftScore = 0;
@@ -183,7 +187,9 @@ function startNewGame() {
     resetBall(Math.random() < 0.5 ? 1 : -1);
     gameState = "playing";
     winnerText = "";
-    // Play game start sound
+    const container = document.getElementById("pong2pGameContainer");
+    if (container) container.classList.remove("title-card-active");
+    document.body.classList.remove("title-card-active");
     gameStartSound.currentTime = 0;
     gameStartSound.play();
 }

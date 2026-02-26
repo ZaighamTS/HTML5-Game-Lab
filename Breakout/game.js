@@ -19,6 +19,8 @@ window.refreshGameContext = function() { applyDPRScaling(); };
 // Expose for HTML buttons
 window.startBreakoutLevel = function(n) {
     selectedLevel = n;
+    var container = document.getElementById("breakoutGameContainer");
+    if (container) container.classList.remove("title-card-active");
     startNewGame();
 };
 window.goToBreakoutLevelSelect = function() {
@@ -49,6 +51,8 @@ const START_LIVES = 3;
 let paddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2;
 let paddleY = GAME_HEIGHT - 50;
 let currentPaddleWidth = PADDLE_WIDTH;
+let targetPaddleWidth = PADDLE_WIDTH;   // Lerp toward this for smooth expand/contract
+let widePaddleEndTime = 0;              // When wide-paddle power-up expires (animationTime)
 
 let ballX = GAME_WIDTH / 2;
 let ballY = GAME_HEIGHT / 2;
@@ -543,61 +547,21 @@ function updatePowerUps() {
 
 function activatePowerUp(type) {
     if (type === POWERUP_TYPES.WIDE_PADDLE) {
-        // Store the center position before changing width
-        const paddleCenter = paddleX + currentPaddleWidth / 2;
-        // Update width
-        currentPaddleWidth = PADDLE_WIDTH_WIDE;
-        // Adjust paddleX to keep the center position the same (expand from both sides)
-        paddleX = paddleCenter - currentPaddleWidth / 2;
-        clampPaddle(); // Ensure paddle stays within bounds
-        
-        setTimeout(() => {
-            // Store the center position before changing width back
-            const paddleCenter = paddleX + currentPaddleWidth / 2;
-            // Update width back to normal
-            currentPaddleWidth = PADDLE_WIDTH;
-            // Adjust paddleX to keep the center position the same (contract from both sides)
-            paddleX = paddleCenter - currentPaddleWidth / 2;
-            clampPaddle(); // Ensure paddle stays within bounds
-        }, 10000); // 10 seconds
+        targetPaddleWidth = PADDLE_WIDTH_WIDE;
+        widePaddleEndTime = animationTime + 10; // 10 seconds from now
     } else if (type === POWERUP_TYPES.MULTI_BALL) {
-        // Multiply all existing balls (main ball + multi-balls)
-        // Create 2 new balls for each existing ball
-        
-        // Copy existing multi-balls BEFORE adding new ones to avoid multiplying the new ones
-        const existingMultiBalls = [...balls];
-        
-        // First, create 2 new balls from the main ball (if it's not lost)
-        if (!isMainBallLost()) {
-            for (let i = 0; i < 2; i++) {
-                const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
-                balls.push({
-                    x: ballX,
-                    y: ballY,
-                    prevX: ballX,
-                    prevY: ballY,
-                    velX: currentBallSpeed * Math.sin(angle),
-                    velY: -currentBallSpeed * Math.cos(angle)
-                });
-            }
-        }
-        
-        // Then, create 2 new balls for each existing multi-ball
-        for (const existingBall of existingMultiBalls) {
-            for (let i = 0; i < 2; i++) {
-                const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
-                const speed = Math.sqrt(existingBall.velX * existingBall.velX + existingBall.velY * existingBall.velY);
-                // Use negative cosine for upward direction (matching main ball creation)
-                balls.push({
-                    x: existingBall.x,
-                    y: existingBall.y,
-                    prevX: existingBall.x,
-                    prevY: existingBall.y,
-                    velX: speed * Math.sin(angle),
-                    velY: -speed * Math.cos(angle)
-                });
-            }
-        }
+        // Spawn one new ball from the paddle (random upward angle)
+        const spawnX = paddleX + currentPaddleWidth / 2;
+        const spawnY = paddleY - BALL_RADIUS - 10;
+        const angle = (Math.random() * 90 - 45) * (Math.PI / 180);
+        balls.push({
+            x: spawnX,
+            y: spawnY,
+            prevX: spawnX,
+            prevY: spawnY,
+            velX: currentBallSpeed * Math.sin(angle),
+            velY: -currentBallSpeed * Math.cos(angle)
+        });
     } else if (type === POWERUP_TYPES.SLOW_BALL) {
         // Slow down all balls temporarily
         const speedMultiplier = 0.6;
@@ -794,6 +758,8 @@ function startNewGame() {
     bricksDestroyed = 0;
     currentBallSpeed = BALL_BASE_SPEED;
     currentPaddleWidth = PADDLE_WIDTH;
+    targetPaddleWidth = PADDLE_WIDTH;
+    widePaddleEndTime = 0;
     balls = [];
     powerUps = [];
     particles = [];
@@ -1134,8 +1100,27 @@ function detectCircleCollision(cx, cy, radius, brick, prevX, prevY, velX, velY) 
 }
 
 // ====== UPDATE ======
+const PADDLE_WIDTH_LERP_SPEED = 8; // How fast paddle width lerps toward target (per second)
+
 function update() {
     if (gameState !== "playing" || paused) return;
+
+    // Wide-paddle power-up expiry
+    if (animationTime >= widePaddleEndTime && widePaddleEndTime > 0) {
+        targetPaddleWidth = PADDLE_WIDTH;
+        widePaddleEndTime = 0;
+    }
+
+    // Smoothly lerp paddle width toward target (expand/contract from center)
+    const dt = typeof lastDeltaTime !== "undefined" ? lastDeltaTime : 1/60;
+    if (Math.abs(currentPaddleWidth - targetPaddleWidth) > 0.5) {
+        const paddleCenter = paddleX + currentPaddleWidth / 2;
+        const delta = (targetPaddleWidth - currentPaddleWidth) * Math.min(1, dt * PADDLE_WIDTH_LERP_SPEED);
+        currentPaddleWidth += delta;
+        currentPaddleWidth = Math.max(PADDLE_WIDTH, Math.min(PADDLE_WIDTH_WIDE, currentPaddleWidth));
+        paddleX = paddleCenter - currentPaddleWidth / 2;
+        clampPaddle();
+    }
 
     // Paddle movement (keyboard)
     if (rightPressed) paddleX += PADDLE_SPEED;
@@ -1424,6 +1409,7 @@ function drawAnimatedButton(ctx, x, y, width, height, text, color, isSelected, i
 
 // ====== LOOP (Throttled to 60 FPS) ======
 let lastUpdateTime = 0;
+let lastDeltaTime = 1/60;
 const targetFPS = 60;
 const frameInterval = 1000 / targetFPS; // ~16.67ms per frame at 60 FPS
 
@@ -1434,8 +1420,8 @@ function gameLoop(timestamp) {
     // Only update game logic at 60 FPS
     const elapsed = timestamp - lastUpdateTime;
     if (elapsed >= frameInterval) {
-        const deltaTime = elapsed / 1000; // Convert to seconds for animationTime
-        animationTime += deltaTime;
+        lastDeltaTime = elapsed / 1000;
+        animationTime += lastDeltaTime;
         update();
         lastUpdateTime = timestamp - (elapsed % frameInterval); // Account for frame time drift
     }

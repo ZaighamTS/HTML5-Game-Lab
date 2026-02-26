@@ -149,6 +149,8 @@
         }
         .whack-btn:hover { transform: scale(1.05); }
 
+        .game-container.title-card-active canvas { filter: blur(12px); opacity: 0.4; }
+
         @media (orientation: landscape) {
             .game-container {
                 max-width: calc(100vw - 40px);
@@ -162,7 +164,7 @@
         ← Back to Menu
     </button>
 
-    <div class="game-container">
+    <div class="game-container title-card-active" id="whackGameContainer">
         <canvas id="gameCanvas" width="900" height="600"></canvas>
         <div class="ui-overlay">
             <div class="whack-hud" id="whackHud">
@@ -187,7 +189,19 @@
             </div>
         </div>
     </div>
+
     <script>
+        (function() {
+            function enterFullscreen() {
+                var elem = document.documentElement, body = document.body;
+                var methods = [function() { return elem.requestFullscreen && elem.requestFullscreen(); }, function() { return elem.webkitRequestFullscreen && elem.webkitRequestFullscreen(); }, function() { return elem.mozRequestFullScreen && elem.mozRequestFullScreen(); }, function() { return elem.msRequestFullscreen && elem.msRequestFullscreen(); }, function() { return body.requestFullscreen && body.requestFullscreen(); }, function() { return body.webkitRequestFullscreen && body.webkitRequestFullscreen(); }];
+                for (var i = 0; i < methods.length; i++) { try { var r = methods[i](); if (r && typeof r.then === 'function') { r.catch(function() {}); return; } if (r !== undefined) return; } catch (e) {} }
+            }
+            [0, 100, 300, 500].forEach(function(delay) { setTimeout(enterFullscreen, delay); });
+            document.addEventListener('click', function f() { enterFullscreen(); document.removeEventListener('click', f); }, { once: true });
+            document.addEventListener('touchstart', function f() { enterFullscreen(); document.removeEventListener('touchstart', f); }, { once: true });
+        })();
+
         // Responsive canvas scaling with devicePixelRatio for crisp rendering
         function resizeCanvas() {
             const canvas = document.getElementById('gameCanvas');
