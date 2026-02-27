@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Whack-a-Mole</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, orientation=landscape" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -293,7 +293,31 @@
             }
         }
 
-        // Auto fullscreen: try on load and on first user interaction (like other games)
+        // Lock screen orientation to landscape (mobile)
+        function lockOrientation() {
+            var orientation = 'landscape';
+            var methods = [
+                function() { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock(orientation); },
+                function() { if (screen.lockOrientation) return screen.lockOrientation(orientation); },
+                function() { if (screen.mozLockOrientation) return screen.mozLockOrientation(orientation); },
+                function() { if (screen.msLockOrientation) return screen.msLockOrientation(orientation); }
+            ];
+            for (var i = 0; i < methods.length; i++) {
+                try {
+                    var r = methods[i]();
+                    if (r && typeof r.then === 'function') { r.catch(function() {}); return; }
+                    if (r !== undefined) return;
+                } catch (e) {}
+            }
+        }
+        function lockOrientationAggressive() {
+            lockOrientation();
+            [50, 100, 200, 300, 500, 750, 1000].forEach(function(delay) {
+                setTimeout(lockOrientation, delay);
+            });
+        }
+
+        // Auto fullscreen + landscape lock
         function enterFullscreen() {
             var elem = document.documentElement;
             var body = document.body;
@@ -305,6 +329,7 @@
                 else if (body && body.requestFullscreen) body.requestFullscreen().catch(function(){});
                 else if (body && body.webkitRequestFullscreen) body.webkitRequestFullscreen();
             } catch (e) {}
+            lockOrientationAggressive();
         }
 
         [0, 100, 300, 500].forEach(function(delay) { setTimeout(enterFullscreen, delay); });
@@ -313,10 +338,13 @@
 
         function initializeGame() {
             resizeCanvas();
+            lockOrientationAggressive();
         }
 
         window.addEventListener('resize', function() { resizeCanvas(); });
-        window.addEventListener('orientationchange', function() { setTimeout(resizeCanvas, 100); });
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() { resizeCanvas(); lockOrientationAggressive(); }, 100);
+        });
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeGame);
