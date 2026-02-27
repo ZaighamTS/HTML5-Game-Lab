@@ -85,8 +85,30 @@
         .ui-overlay .level-select-overlay,
         .ui-overlay .menu-overlay,
         .ui-overlay .paused-overlay,
-        .ui-overlay .game-end-overlay {
+        .ui-overlay .game-end-overlay,
+        .ui-overlay .level-select-btn-wrap {
             pointer-events: auto;
+        }
+        .level-select-btn-wrap {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 15;
+        }
+        .level-select-btn-wrap .level-select-btn {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            font-size: 13px;
+            background: rgba(30, 41, 59, 0.9);
+            color: #e5e7eb;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .level-select-btn-wrap .level-select-btn:hover {
+            background: rgba(51, 65, 85, 0.95);
+            border-color: rgba(148, 163, 184, 0.6);
         }
         .hud {
             position: absolute;
@@ -95,12 +117,17 @@
             right: 0;
             padding: 20px;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             font-size: 18px;
             color: #e5e7eb;
             font-family: Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             text-rendering: optimizeLegibility;
+        }
+        .hud .hud-center {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
         }
         .overlay-title {
             font-size: 40px;
@@ -205,16 +232,19 @@
     <div class="game-container title-card-active" id="breakoutGameContainer">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div class="ui-overlay">
+            <div class="level-select-btn-wrap" id="breakoutLevelSelectBtnWrap" style="visibility: hidden;">
+                <button type="button" class="level-select-btn" onclick="window.goToBreakoutLevelSelect()">← Level Select</button>
+            </div>
             <div class="hud" id="breakoutHud">
-                <div class="hud-left">Score: <span id="breakoutScore">0</span> &nbsp; Level: <span id="breakoutLevel">1</span></div>
+                <div class="hud-center">Score: <span id="breakoutScore">0</span> &nbsp; Level: <span id="breakoutLevel">1</span></div>
                 <div class="hud-right">Lives: <span id="breakoutLives">3</span> &nbsp; High Score: <span id="breakoutHighScore">0</span></div>
             </div>
             <div class="level-select-overlay" id="levelSelectOverlay" style="display: none;">
                 <h1 class="overlay-title">SELECT LEVEL</h1>
                 <div class="level-buttons">
-                    <button type="button" class="level-btn level-1" onclick="window.startBreakoutLevel(1)">1. Rectangular Bricks<br><small>5 rows × 10 columns</small></button>
-                    <button type="button" class="level-btn level-2" onclick="window.startBreakoutLevel(2)">2. Triangular Bricks<br><small>Geometric patterns</small></button>
-                    <button type="button" class="level-btn level-3" onclick="window.startBreakoutLevel(3)">3. Circular Bricks<br><small>Concentric circles</small></button>
+                    <button type="button" class="level-btn level-1" onclick="window.startBreakoutLevel(1)">1. Easy<br><small>4 rows × 10 columns</small></button>
+                    <button type="button" class="level-btn level-2" onclick="window.startBreakoutLevel(2)">2. Medium<br><small>8 rows × 10 columns</small></button>
+                    <button type="button" class="level-btn level-3" onclick="window.startBreakoutLevel(3)">3. Hard<br><small>7×7 in 3 sections, dividers</small></button>
                 </div>
                 <p class="overlay-hint">Use Arrow Keys to select, SPACE/ENTER to start · Or click a level</p>
             </div>

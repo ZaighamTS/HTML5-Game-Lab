@@ -25,6 +25,7 @@ window.startBreakoutLevel = function(n) {
 };
 window.goToBreakoutLevelSelect = function() {
     gameState = "levelSelect";
+    paused = false;
 };
 
 // ====== SETTINGS ======
@@ -49,10 +50,12 @@ const START_LIVES = 3;
 
 // ====== GAME STATE ======
 let paddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2;
+let targetPaddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2; // Smooth follow for touch/mouse
 let paddleY = GAME_HEIGHT - 50;
 let currentPaddleWidth = PADDLE_WIDTH;
 let targetPaddleWidth = PADDLE_WIDTH;   // Lerp toward this for smooth expand/contract
 let widePaddleEndTime = 0;              // When wide-paddle power-up expires (animationTime)
+let slowBallEndTime = 0;               // When slow-ball power-up expires (animationTime)
 
 let ballX = GAME_WIDTH / 2;
 let ballY = GAME_HEIGHT / 2;
@@ -84,6 +87,7 @@ let bricks = [];
 let particles = [];
 let powerUps = [];
 let balls = []; // For multi-ball power-up
+let dividers = []; // Level 3 only: vertical walls between 2-3-2 sections
 
 let gameState = "levelSelect"; // "levelSelect" | "menu" | "playing" | "paused" | "gameEnd"
 let paused = false;
@@ -188,8 +192,9 @@ canvas.addEventListener("mousemove", (e) => {
     mouseY = coords.y;
     
     if (gameState === "playing" && !paused) {
-        paddleX = mouseX - currentPaddleWidth / 2;
-        clampPaddle();
+        targetPaddleX = mouseX - currentPaddleWidth / 2;
+        if (targetPaddleX < 0) targetPaddleX = 0;
+        if (targetPaddleX + currentPaddleWidth > GAME_WIDTH) targetPaddleX = GAME_WIDTH - currentPaddleWidth;
     }
 });
 
@@ -202,8 +207,9 @@ canvas.addEventListener("touchmove", (e) => {
         mouseX = coords.x;
         mouseY = coords.y;
         
-        paddleX = mouseX - currentPaddleWidth / 2;
-        clampPaddle();
+        targetPaddleX = mouseX - currentPaddleWidth / 2;
+        if (targetPaddleX < 0) targetPaddleX = 0;
+        if (targetPaddleX + currentPaddleWidth > GAME_WIDTH) targetPaddleX = GAME_WIDTH - currentPaddleWidth;
     }
 }, { passive: false });
 
@@ -290,8 +296,9 @@ canvas.addEventListener("touchstart", (e) => {
     // Handle paddle movement if touching during gameplay
     if (gameState === "playing" && !paused) {
         e.preventDefault();
-        paddleX = mouseX - currentPaddleWidth / 2;
-        clampPaddle();
+        targetPaddleX = mouseX - currentPaddleWidth / 2;
+        if (targetPaddleX < 0) targetPaddleX = 0;
+        if (targetPaddleX + currentPaddleWidth > GAME_WIDTH) targetPaddleX = GAME_WIDTH - currentPaddleWidth;
         return; // Don't process button clicks if in gameplay
     }
     
@@ -364,12 +371,16 @@ canvas.addEventListener("touchstart", (e) => {
 }, { passive: false });
 
 // ====== BRICK CREATION FUNCTIONS ======
+const DIVIDER_WIDTH = 12;
+const DIVIDER_TOP = BRICK_OFFSET_TOP;
+
 function createBricks() {
     bricks = [];
-    
+    dividers = [];
+
     if (selectedLevel === 1) {
-        // Level 1: Rectangular bricks (5 rows x 10 columns)
-        const BRICK_ROWS = 5;
+        // Easy: 4 rows × 10 columns
+        const BRICK_ROWS = 4;
         const BRICK_COLS = 10;
         for (let row = 0; row < BRICK_ROWS; row++) {
             bricks[row] = [];
@@ -388,67 +399,74 @@ function createBricks() {
             }
         }
     } else if (selectedLevel === 2) {
-        // Level 2: Triangular bricks in triangle pattern
-        const TRIANGLE_ROWS = 7;
-        const centerX = GAME_WIDTH / 2;
-        const startY = BRICK_OFFSET_TOP;
-        
-        for (let row = 0; row < TRIANGLE_ROWS; row++) {
-            const numTriangles = row + 1;
-            const isUpright = row % 2 === 0; // Even rows are upright, odd rows are upside down
-            const triangleWidth = TRIANGLE_SIZE;
-            const triangleHeight = TRIANGLE_SIZE * Math.sqrt(3) / 2;
-            const totalWidth = numTriangles * triangleWidth;
-            const startX = centerX - totalWidth / 2;
-            
+        // Medium: 8 rows × 10 columns
+        const BRICK_ROWS = 8;
+        const BRICK_COLS = 10;
+        for (let row = 0; row < BRICK_ROWS; row++) {
             bricks[row] = [];
-            for (let col = 0; col < numTriangles; col++) {
-                const x = startX + col * triangleWidth;
-                let y = startY + row * triangleHeight;
-                // Move upright triangles upward a bit
-                if (isUpright) {
-                    y -= 15; // Adjust this value to move more/less
-                }
+            for (let col = 0; col < BRICK_COLS; col++) {
+                const x = BRICK_OFFSET_LEFT + col * (BRICK_WIDTH + BRICK_PADDING);
+                const y = BRICK_OFFSET_TOP + row * (BRICK_HEIGHT + BRICK_PADDING);
                 bricks[row][col] = {
-                    type: "triangle",
+                    type: "rect",
                     x,
                     y,
-                    size: TRIANGLE_SIZE,
-                    upright: isUpright,
+                    width: BRICK_WIDTH,
+                    height: BRICK_HEIGHT,
                     alive: true,
                     color: getBrickColor(row)
                 };
             }
         }
-    } else if (selectedLevel === 3) {
-        // Level 3: Circular bricks in circular layers
-        const CIRCLE_LAYERS = 5;
-        const centerX = GAME_WIDTH / 2;
-        const centerY = BRICK_OFFSET_TOP + 150;
-        const layerSpacing = CIRCLE_RADIUS * 2.5;
-        
-        for (let layer = 0; layer < CIRCLE_LAYERS; layer++) {
-            const radius = layer * layerSpacing;
-            const numCircles = layer === 0 ? 1 : Math.max(6, layer * 6);
-            const angleStep = (Math.PI * 2) / numCircles;
-            
-            if (!bricks[layer]) bricks[layer] = [];
-            
-            for (let i = 0; i < numCircles; i++) {
-                const angle = i * angleStep;
-                const x = centerX + Math.cos(angle) * radius;
-                const y = centerY + Math.sin(angle) * radius;
-                
-                bricks[layer][i] = {
-                    type: "circle",
-                    x,
-                    y,
-                    radius: CIRCLE_RADIUS,
-                    alive: true,
-                    color: getBrickColor(layer)
-                };
+    } else {
+        // Hard: same vertical size as level 2 (8 rows), 7 columns in 2-3-2 sections with vertical dividers (brick-area height only)
+        const BRICK_COLS = 7;
+        const BRICK_ROWS = 8;  // match level 2 row count
+        const colStep = BRICK_WIDTH + BRICK_PADDING;
+        const rowStep = BRICK_HEIGHT + BRICK_PADDING;  // same as level 1/2
+        const GAP_BETWEEN_SECTIONS = 20;
+        const DIVIDER_MARGIN = 8;  // Space beside divider (right of vertical)
+        const totalWidth = 2 * colStep + GAP_BETWEEN_SECTIONS + 3 * colStep + GAP_BETWEEN_SECTIONS + 2 * colStep;
+        const startX = (GAME_WIDTH - totalWidth) / 2;
+        const sectionStartX = [
+            startX,
+            startX + 2 * colStep + GAP_BETWEEN_SECTIONS,
+            startX + 2 * colStep + GAP_BETWEEN_SECTIONS + 3 * colStep + GAP_BETWEEN_SECTIONS
+        ];
+        const sectionStartCol = [0, 2, 5];
+        const sectionNumCols = [2, 3, 2];
+        for (let row = 0; row < BRICK_ROWS; row++) {
+            bricks[row] = [];
+        }
+        for (let section = 0; section < 3; section++) {
+            const numCols = sectionNumCols[section];
+            const sectionX = sectionStartX[section];
+            for (let row = 0; row < BRICK_ROWS; row++) {
+                const y = BRICK_OFFSET_TOP + row * rowStep;
+                for (let c = 0; c < numCols; c++) {
+                    const col = sectionStartCol[section] + c;
+                    const x = sectionX + c * colStep;
+                    bricks[row][col] = {
+                        type: "rect",
+                        x,
+                        y,
+                        width: BRICK_WIDTH,
+                        height: BRICK_HEIGHT,
+                        alive: true,
+                        color: getBrickColor(row)
+                    };
+                }
             }
         }
+        // Vertical dividers: only as tall as the brick area (not full screen)
+        const divY = BRICK_OFFSET_TOP;
+        const brickAreaHeight = BRICK_ROWS * rowStep;
+        const divH = brickAreaHeight;
+        const div1RightEdge = sectionStartX[1] - DIVIDER_MARGIN;
+        const div2RightEdge = sectionStartX[2] - DIVIDER_MARGIN;
+        const vert1 = { x: div1RightEdge - DIVIDER_WIDTH, y: divY, w: DIVIDER_WIDTH, h: divH };
+        const vert2 = { x: div2RightEdge - DIVIDER_WIDTH, y: divY, w: DIVIDER_WIDTH, h: divH };
+        dividers = [vert1, vert2];
     }
 }
 
@@ -502,8 +520,8 @@ function drawParticles() {
 
 // ====== POWER-UP SYSTEM ======
 function createPowerUp(x, y) {
-    // Random chance to drop power-up (30%)
-    if (Math.random() < 0.3) {
+    // Random chance to drop power-up (15%, reduced by 50% from 30%)
+    if (Math.random() < 0.15) {
         const types = Object.values(POWERUP_TYPES);
         const type = types[Math.floor(Math.random() * types.length)];
         powerUps.push({
@@ -563,7 +581,7 @@ function activatePowerUp(type) {
             velY: -currentBallSpeed * Math.cos(angle)
         });
     } else if (type === POWERUP_TYPES.SLOW_BALL) {
-        // Slow down all balls temporarily
+        // Slow down all balls for 10 seconds
         const speedMultiplier = 0.6;
         ballVelX *= speedMultiplier;
         ballVelY *= speedMultiplier;
@@ -571,6 +589,7 @@ function activatePowerUp(type) {
             ball.velX *= speedMultiplier;
             ball.velY *= speedMultiplier;
         }
+        slowBallEndTime = animationTime + 10;
     }
 }
 
@@ -642,6 +661,22 @@ function updateMultiBalls() {
             ball.velY = -ball.velY;
         }
 
+        // Divider collisions (level 3)
+        for (const div of dividers) {
+            if (circleRectCollide(ball.x, ball.y, BALL_RADIUS, div.x, div.y, div.w, div.h)) {
+                const isHorizontal = div.w > div.h;
+                if (isHorizontal) {
+                    ball.velY = -ball.velY;
+                    if (ball.y < div.y + div.h / 2) ball.y = div.y - BALL_RADIUS - 1;
+                    else ball.y = div.y + div.h + BALL_RADIUS + 1;
+                } else {
+                    ball.velX = -ball.velX;
+                    if (ball.x < div.x + div.w / 2) ball.x = div.x - BALL_RADIUS - 1;
+                    else ball.x = div.x + div.w + BALL_RADIUS + 1;
+                }
+            }
+        }
+
         // Bottom - remove ball
         if (ball.y - BALL_RADIUS > GAME_HEIGHT) {
             balls.splice(i, 1);
@@ -678,7 +713,9 @@ function updateMultiBalls() {
                     brick.alive = false;
                     score += 10;
                     bricksDestroyed++;
-                    createParticles(brick.x, brick.y, brick.color);
+                    const px = collision.impactX != null ? collision.impactX : brick.x;
+                    const py = collision.impactY != null ? collision.impactY : brick.y;
+                    createParticles(px, py, brick.color);
                     createPowerUp(brick.x, brick.y);
                     breakSound.currentTime = 0;
                     breakSound.play();
@@ -760,10 +797,13 @@ function startNewGame() {
     currentPaddleWidth = PADDLE_WIDTH;
     targetPaddleWidth = PADDLE_WIDTH;
     widePaddleEndTime = 0;
+    slowBallEndTime = 0;
     balls = [];
     powerUps = [];
     particles = [];
+    dividers = [];
     paddleX = GAME_WIDTH / 2 - PADDLE_WIDTH / 2;
+    targetPaddleX = paddleX;
     paddleY = GAME_HEIGHT - 50;
     resetBall();
     createBricks();
@@ -972,7 +1012,7 @@ function detectRectCollision(cx, cy, radius, brick, prevX, prevY, velX, velY) {
         }
     }
 
-    return { hit: true, side: side };
+    return { hit: true, side: side, impactX: closestX, impactY: closestY };
 }
 
 function detectTriangleCollision(cx, cy, radius, brick, prevX, prevY, velX, velY) {
@@ -1111,6 +1151,18 @@ function update() {
         widePaddleEndTime = 0;
     }
 
+    // Slow-ball power-up expiry (restore normal speed after 10 seconds)
+    if (animationTime >= slowBallEndTime && slowBallEndTime > 0) {
+        const restoreMultiplier = 1 / 0.6; // Undo the 0.6 slow
+        ballVelX *= restoreMultiplier;
+        ballVelY *= restoreMultiplier;
+        for (const ball of balls) {
+            ball.velX *= restoreMultiplier;
+            ball.velY *= restoreMultiplier;
+        }
+        slowBallEndTime = 0;
+    }
+
     // Smoothly lerp paddle width toward target (expand/contract from center)
     const dt = typeof lastDeltaTime !== "undefined" ? lastDeltaTime : 1/60;
     if (Math.abs(currentPaddleWidth - targetPaddleWidth) > 0.5) {
@@ -1122,9 +1174,14 @@ function update() {
         clampPaddle();
     }
 
-    // Paddle movement (keyboard)
-    if (rightPressed) paddleX += PADDLE_SPEED;
-    if (leftPressed) paddleX -= PADDLE_SPEED;
+    // Paddle movement: keyboard updates target, then lerp toward target (smooth on touch/mouse)
+    if (rightPressed) targetPaddleX += PADDLE_SPEED;
+    if (leftPressed) targetPaddleX -= PADDLE_SPEED;
+    if (targetPaddleX < 0) targetPaddleX = 0;
+    if (targetPaddleX + currentPaddleWidth > GAME_WIDTH) targetPaddleX = GAME_WIDTH - currentPaddleWidth;
+
+    const PADDLE_LERP = 0.18;
+    paddleX += (targetPaddleX - paddleX) * PADDLE_LERP;
     clampPaddle();
 
     // Update particles
@@ -1165,6 +1222,22 @@ function update() {
         if (ballX + BALL_RADIUS > GAME_WIDTH && ballVelX > 0) {
             ballX = GAME_WIDTH - BALL_RADIUS;
             ballVelX = -ballVelX;
+        }
+
+        // Divider collisions (level 3)
+        for (const div of dividers) {
+            if (circleRectCollide(ballX, ballY, BALL_RADIUS, div.x, div.y, div.w, div.h)) {
+                const isHorizontal = div.w > div.h;
+                if (isHorizontal) {
+                    ballVelY = -ballVelY;
+                    if (ballY < div.y + div.h / 2) ballY = div.y - BALL_RADIUS - 1;
+                    else ballY = div.y + div.h + BALL_RADIUS + 1;
+                } else {
+                    ballVelX = -ballVelX;
+                    if (ballX < div.x + div.w / 2) ballX = div.x - BALL_RADIUS - 1;
+                    else ballX = div.x + div.w + BALL_RADIUS + 1;
+                }
+            }
         }
 
         // Top wall
@@ -1216,7 +1289,9 @@ function update() {
                     score += 10;
                     bricksRemaining--;
                     bricksDestroyed++;
-                    createParticles(brick.x, brick.y, brick.color);
+                    const px = collision.impactX != null ? collision.impactX : brick.x;
+                    const py = collision.impactY != null ? collision.impactY : brick.y;
+                    createParticles(px, py, brick.color);
                     createPowerUp(brick.x, brick.y);
                     breakSound.currentTime = 0;
                     breakSound.play();
@@ -1248,6 +1323,17 @@ function update() {
 }
 
 // ====== DRAW ======
+function drawDividers() {
+    if (dividers.length === 0) return;
+    ctx.fillStyle = "#64748b";
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 2;
+    for (const div of dividers) {
+        ctx.fillRect(div.x, div.y, div.w, div.h);
+        ctx.strokeRect(div.x, div.y, div.w, div.h);
+    }
+}
+
 function drawBricks() {
     for (let row = 0; row < bricks.length; row++) {
         for (let col = 0; col < bricks[row]?.length; col++) {
@@ -1301,7 +1387,9 @@ function updateUI() {
     pausedOverlay.style.display = gameState === "paused" ? "block" : "none";
     gameEndOverlay.style.display = gameState === "gameEnd" ? "block" : "none";
     if (hud) hud.style.visibility = (gameState === "playing" || gameState === "paused") ? "visible" : "hidden";
-    
+    const levelSelectBtnWrap = document.getElementById('breakoutLevelSelectBtnWrap');
+    if (levelSelectBtnWrap) levelSelectBtnWrap.style.visibility = (gameState === "playing" || gameState === "paused") ? "visible" : "hidden";
+
     if (gameState === "gameEnd") {
         const titleEl = document.getElementById('breakoutGameEndTitle');
         const scoreEl = document.getElementById('breakoutGameEndScore');
@@ -1327,6 +1415,9 @@ function draw() {
 
     // Bricks
     drawBricks();
+
+    // Dividers (level 3 hard borders)
+    drawDividers();
 
     // Particles
     drawParticles();

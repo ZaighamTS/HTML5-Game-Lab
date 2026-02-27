@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Whack-a-Mole</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,68 +15,66 @@
             height: 100%;
             overflow: hidden;
             position: fixed;
+            box-sizing: border-box;
         }
+        *, *::before, *::after { box-sizing: border-box; }
 
         body {
-            background: radial-gradient(circle at top, #1f2933, #020617);
+            background: #0f1419;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            min-height: 100dvh;
             width: 100vw;
-            /* Hide browser UI on mobile */
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .game-container {
             position: relative;
-            border: 3px solid rgba(148, 163, 184, 0.3);
-            border-radius: 8px;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
-            background: #000;
-            padding: 4px;
-            max-width: 100vw;
-            max-height: 100vh;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
 
         canvas {
             display: block;
-            background: #000;
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
+            background: #0a0c0e;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            touch-action: none;
         }
 
         .back-btn {
             position: fixed;
-            top: 12px;
-            left: 12px;
-            padding: 6px 10px;
+            top: max(12px, env(safe-area-inset-top));
+            left: max(12px, env(safe-area-inset-left));
+            padding: 10px 14px;
             border-radius: 999px;
             border: none;
-            font-size: 12px;
-            background: #111827;
+            font-size: 14px;
+            background: rgba(20, 25, 32, 0.9);
             color: #e5e7eb;
             cursor: pointer;
-            opacity: 0.8;
+            opacity: 0.9;
+            z-index: 20;
+            -webkit-tap-highlight-color: transparent;
         }
-
-        .back-btn:hover {
-            opacity: 1;
-        }
+        .back-btn:hover, .back-btn:active { opacity: 1; }
 
         .ui-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             pointer-events: none;
             z-index: 10;
         }
@@ -89,27 +87,27 @@
             top: 0;
             left: 0;
             right: 0;
-            padding: 15px 20px;
+            padding: 12px 16px;
+            padding-top: max(12px, env(safe-area-inset-top));
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 10px;
-            font-size: 24px;
+            gap: 8px;
+            font-size: clamp(16px, 4vw, 24px);
             font-weight: bold;
             color: #fff;
-            font-family: Arial, sans-serif;
-            background: rgba(0,0,0,0.4);
+            font-family: system-ui, -apple-system, Arial, sans-serif;
+            background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 80%, transparent 100%);
             -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
         }
         .whack-hud .hud-combo {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
-            top: 70px;
+            top: 58px;
             color: #facc15;
-            font-size: 26px;
+            font-size: clamp(18px, 4vw, 26px);
         }
         .whack-menu-overlay,
         .whack-gameover-overlay {
@@ -118,44 +116,55 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            width: 90%;
-            max-width: 450px;
-            padding: 30px;
-            border-radius: 12px;
-            background: rgba(15, 23, 42, 0.9);
+            width: min(90%, 420px);
+            padding: 28px 24px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.94);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
         }
-        .whack-menu-overlay h1, .whack-gameover-overlay h1 { font-size: 56px; margin: 0 0 10px 0; color: #e5e7eb; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-        .whack-menu-overlay h2 { font-size: 40px; color: #d97706; margin: 0 0 20px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-        .whack-menu-overlay p, .whack-gameover-overlay p { font-size: 20px; color: rgba(229,231,235,0.9); margin: 8px 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-        .whack-go-title { font-size: 48px; }
-        .whack-go-score { font-size: 28px; font-weight: bold; }
-        .whack-new-best { font-size: 24px; color: #fbbf24; }
-        .whack-best-line { font-size: 22px; color: rgba(229,231,235,0.8); }
-        .whack-countdown { font-size: 18px; color: rgba(148,163,184,0.7); margin-top: 10px; }
+        .whack-menu-overlay h1, .whack-gameover-overlay h1 {
+            font-size: clamp(40px, 10vw, 56px);
+            margin: 0 0 8px 0;
+            color: #e5e7eb;
+            font-family: system-ui, Arial, sans-serif;
+        }
+        .whack-menu-overlay h2 {
+            font-size: clamp(28px, 7vw, 40px);
+            color: #d97706;
+            margin: 0 0 16px 0;
+        }
+        .whack-menu-overlay p, .whack-gameover-overlay p {
+            font-size: clamp(16px, 4vw, 20px);
+            color: rgba(229,231,235,0.9);
+            margin: 6px 0;
+        }
+        .whack-go-title { font-size: clamp(36px, 9vw, 48px); }
+        .whack-go-score { font-size: clamp(22px, 5vw, 28px); font-weight: bold; }
+        .whack-new-best { font-size: clamp(18px, 4vw, 24px); color: #fbbf24; }
+        .whack-best-line { font-size: clamp(18px, 4vw, 22px); color: rgba(229,231,235,0.8); }
+        .whack-countdown { font-size: 16px; color: rgba(148,163,184,0.7); margin-top: 8px; }
         .whack-btn {
-            padding: 16px 32px;
-            font-size: 22px;
+            padding: 14px 28px;
+            font-size: clamp(18px, 4vw, 22px);
             font-weight: bold;
             color: #fff;
             border: 2px solid #d97706;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             background: linear-gradient(135deg, #d97706, #b45309);
-            margin: 20px auto;
+            margin: 16px auto;
             display: block;
-            font-family: Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
+            font-family: inherit;
+            -webkit-tap-highlight-color: transparent;
         }
-        .whack-btn:hover { transform: scale(1.05); }
+        .whack-btn:hover { transform: scale(1.04); }
+        .whack-btn:active { transform: scale(0.98); }
 
-        .game-container.title-card-active canvas { filter: blur(12px); opacity: 0.4; }
+        .game-container.title-card-active canvas { filter: blur(10px); opacity: 0.5; }
 
-        @media (orientation: landscape) {
-            .game-container {
-                max-width: calc(100vw - 40px);
-                max-height: calc(100vh - 40px);
-            }
+        @media (max-width: 480px) {
+            .whack-hud { padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); }
+            .whack-hud .hud-combo { top: 52px; }
         }
     </style>
 </head>
@@ -191,281 +200,72 @@
     </div>
 
     <script>
-        (function() {
-            function enterFullscreen() {
-                var elem = document.documentElement, body = document.body;
-                var methods = [function() { return elem.requestFullscreen && elem.requestFullscreen(); }, function() { return elem.webkitRequestFullscreen && elem.webkitRequestFullscreen(); }, function() { return elem.mozRequestFullScreen && elem.mozRequestFullScreen(); }, function() { return elem.msRequestFullscreen && elem.msRequestFullscreen(); }, function() { return body.requestFullscreen && body.requestFullscreen(); }, function() { return body.webkitRequestFullscreen && body.webkitRequestFullscreen(); }];
-                for (var i = 0; i < methods.length; i++) { try { var r = methods[i](); if (r && typeof r.then === 'function') { r.catch(function() {}); return; } if (r !== undefined) return; } catch (e) {} }
-            }
-            [0, 100, 300, 500].forEach(function(delay) { setTimeout(enterFullscreen, delay); });
-            document.addEventListener('click', function f() { enterFullscreen(); document.removeEventListener('click', f); }, { once: true });
-            document.addEventListener('touchstart', function f() { enterFullscreen(); document.removeEventListener('touchstart', f); }, { once: true });
-        })();
-
-        // Responsive canvas scaling with devicePixelRatio for crisp rendering
+        // Responsive canvas: fit any screen (portrait or landscape) while keeping 900x600 logic
         function resizeCanvas() {
             const canvas = document.getElementById('gameCanvas');
-            const container = document.querySelector('.game-container');
-            const gameWidth = 900;  // Original game width
-            const gameHeight = 600; // Original game height
+            const container = document.getElementById('whackGameContainer');
+            const gameWidth = 900;
+            const gameHeight = 600;
             const aspectRatio = gameWidth / gameHeight;
-            
-            // Get device pixel ratio for crisp rendering (handles high-DPI displays)
-            const dpr = window.devicePixelRatio || 1;
-            
-            // Get available space
-            const maxWidth = window.innerWidth - 40;  // Account for padding
-            const maxHeight = window.innerHeight - 40;
-            
-            let displayWidth, displayHeight;
-            
-            // Calculate display dimensions to fit while maintaining aspect ratio
+
+            var maxWidth = (container && container.clientWidth) ? container.clientWidth : (window.innerWidth || document.documentElement.clientWidth);
+            var maxHeight = (container && container.clientHeight) ? container.clientHeight : (window.innerHeight || document.documentElement.clientHeight);
+            if (maxWidth <= 0) maxWidth = 320;
+            if (maxHeight <= 0) maxHeight = 480;
+
+            var displayWidth, displayHeight;
             if (maxWidth / maxHeight > aspectRatio) {
-                // Height is the limiting factor
                 displayHeight = maxHeight;
                 displayWidth = displayHeight * aspectRatio;
             } else {
-                // Width is the limiting factor
                 displayWidth = maxWidth;
                 displayHeight = displayWidth / aspectRatio;
             }
-            
-            // Set canvas display size (CSS) - this is what the user sees
+
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
-            
-            // Set canvas internal resolution to fixed game dimensions (UI is in HTML)
             canvas.width = gameWidth;
             canvas.height = gameHeight;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            canvas._scaleX = displayWidth / gameWidth;
-            canvas._scaleY = displayHeight / gameHeight;
-        }
 
-        // Lock screen orientation to landscape - AGGRESSIVE MODE
-        function lockOrientation() {
-            const orientation = 'landscape';
-            
-            // Try multiple methods for maximum compatibility
-            const methods = [
-                () => {
-                    if (screen.orientation && screen.orientation.lock) {
-                        return screen.orientation.lock(orientation);
-                    }
-                },
-                () => {
-                    if (screen.lockOrientation) {
-                        return screen.lockOrientation(orientation);
-                    }
-                },
-                () => {
-                    if (screen.mozLockOrientation) {
-                        return screen.mozLockOrientation(orientation);
-                    }
-                },
-                () => {
-                    if (screen.msLockOrientation) {
-                        return screen.msLockOrientation(orientation);
-                    }
-                }
-            ];
-            
-            for (const method of methods) {
-                try {
-                    const result = method();
-                    if (result && typeof result.then === 'function') {
-                        result.catch(() => {
-                            // Try next method if this one fails
-                        });
-                        return;
-                    } else if (result !== undefined) {
-                        return;
-                    }
-                } catch (e) {
-                    // Continue to next method
-                }
+            var ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
             }
         }
-        
-        // Aggressively lock orientation with multiple attempts
-        function lockOrientationAggressive() {
-            lockOrientation();
-            
-            // Try multiple times with delays
-            [50, 100, 200, 300, 500, 750, 1000].forEach(delay => {
-                setTimeout(() => {
-                    lockOrientation();
-                }, delay);
-            });
-        }
 
-        // Enter fullscreen mode (more aggressive approach)
+        // Auto fullscreen: try on load and on first user interaction (like other games)
         function enterFullscreen() {
-            const elem = document.documentElement;
-            const body = document.body;
-            
-            // Try multiple methods for maximum compatibility
-            const methods = [
-                () => elem.requestFullscreen().catch(() => {}),
-                () => elem.webkitRequestFullscreen().catch(() => {}),
-                () => elem.mozRequestFullScreen().catch(() => {}),
-                () => elem.msRequestFullscreen().catch(() => {}),
-                () => body.requestFullscreen().catch(() => {}),
-                () => body.webkitRequestFullscreen().catch(() => {}),
-                () => body.mozRequestFullScreen().catch(() => {}),
-                () => body.msRequestFullscreen().catch(() => {})
-            ];
-            
-            for (const method of methods) {
-                try {
-                    if (method) {
-                        const result = method();
-                        if (result && typeof result.then === 'function') {
-                            result.catch(() => {}); // Silently handle rejection
-                        }
-                        return;
-                    }
-                } catch (e) {
-                    // Silently continue to next method
-                }
-            }
+            var elem = document.documentElement;
+            var body = document.body;
+            try {
+                if (elem.requestFullscreen) elem.requestFullscreen().catch(function(){});
+                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+                else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
+                else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+                else if (body && body.requestFullscreen) body.requestFullscreen().catch(function(){});
+                else if (body && body.webkitRequestFullscreen) body.webkitRequestFullscreen();
+            } catch (e) {}
         }
 
-        // Check if already in fullscreen
-        function isFullscreen() {
-            return !!(document.fullscreenElement || 
-                     document.webkitFullscreenElement || 
-                     document.mozFullScreenElement || 
-                     document.msFullscreenElement);
-        }
+        [0, 100, 300, 500].forEach(function(delay) { setTimeout(enterFullscreen, delay); });
+        document.addEventListener('click', function onceClick() { enterFullscreen(); document.removeEventListener('click', onceClick); }, { once: true });
+        document.addEventListener('touchstart', function onceTouch() { enterFullscreen(); document.removeEventListener('touchstart', onceTouch); }, { once: true });
 
-        // Auto-orient and fullscreen on load - AGGRESSIVE MODE
         function initializeGame() {
-            lockOrientationAggressive();
             resizeCanvas();
-            
-            // Try fullscreen with multiple strategies and timing
-            const tryFullscreenMultipleTimes = () => {
-                if (!isFullscreen()) {
-                    enterFullscreen();
-                }
-            };
-            
-            // Immediate attempts
-            tryFullscreenMultipleTimes();
-            
-            // Try with requestAnimationFrame (runs before paint)
-            requestAnimationFrame(() => {
-                tryFullscreenMultipleTimes();
-            });
-            
-            // Multiple delayed attempts
-            [50, 100, 200, 300, 500, 750, 1000, 1500].forEach(delay => {
-                setTimeout(() => {
-                    tryFullscreenMultipleTimes();
-                }, delay);
-            });
         }
 
-        // Initialize and handle resize
-        window.addEventListener('resize', () => {
-            resizeCanvas();
-        });
-        window.addEventListener('orientationchange', () => {
-            setTimeout(() => {
-                resizeCanvas();
-                lockOrientationAggressive();
-                if (!isFullscreen()) enterFullscreen();
-            }, 100);
-        });
-        
-        // Also try orientation lock on various events
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                lockOrientationAggressive();
-            }, 100);
-        });
-        
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                setTimeout(() => {
-                    lockOrientationAggressive();
-                }, 50);
-            }
-        });
-        
-        window.addEventListener('focus', () => {
-            setTimeout(() => {
-                lockOrientationAggressive();
-            }, 50);
-        });
-        
-        // Try on any user interaction (some browsers require this)
-        const tryLockOrientationOnInteraction = () => {
-            lockOrientationAggressive();
-        };
-        
-        document.addEventListener('click', tryLockOrientationOnInteraction, { once: false });
-        document.addEventListener('touchstart', tryLockOrientationOnInteraction, { once: false });
-        
-        // Try fullscreen on ANY user interaction (fallback)
-        const tryFullscreenOnInteraction = () => {
-            if (!isFullscreen()) {
-                enterFullscreen();
-            }
-        };
-        
-        // Listen for various user interaction events (as fallback)
-        document.addEventListener('click', tryFullscreenOnInteraction, { once: false });
-        document.addEventListener('touchstart', tryFullscreenOnInteraction, { once: false });
-        document.addEventListener('touchend', tryFullscreenOnInteraction, { once: false });
-        document.addEventListener('keydown', tryFullscreenOnInteraction, { once: false });
-        
-        // Initial setup - try multiple initialization points
-        resizeCanvas();
-        
-        // Try on DOMContentLoaded
+        window.addEventListener('resize', function() { resizeCanvas(); });
+        window.addEventListener('orientationchange', function() { setTimeout(resizeCanvas, 100); });
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initializeGame);
         } else {
             initializeGame();
         }
-        
-        // Also try on window load (after all resources loaded)
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                if (!isFullscreen()) enterFullscreen();
-            }, 100);
-        });
-        
-        // Try when page becomes visible
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && !isFullscreen()) {
-                setTimeout(() => {
-                    enterFullscreen();
-                }, 50);
-            }
-        });
-        
-        // Try on window focus
-        window.addEventListener('focus', () => {
-            if (!isFullscreen()) {
-                setTimeout(() => {
-                    enterFullscreen();
-                }, 50);
-            }
-        });
-        
-        // Try on pageshow (back/forward navigation)
-        window.addEventListener('pageshow', () => {
-            setTimeout(() => {
-                if (!isFullscreen()) enterFullscreen();
-            }, 100);
-        });
+        window.addEventListener('load', function() { resizeCanvas(); });
     </script>
     <!-- Load utilities for error handling -->
     <script src="../common/utils.js"></script>

@@ -20,6 +20,7 @@ const HOLE_SIZE = 130;
 const MOLE_SIZE = 90;
 const HOLE_RADIUS = 50;
 const START_TIME = 30; // seconds
+const GROUND_TOP = 90; // Y where playfield ground starts (holes are main focus, all on screen)
 
 // ===== GAME STATE =====
 const START_LIVES = 3;
@@ -68,7 +69,10 @@ const comboSound = new Audio("../Sounds/combo.wav");
 function setupHoles() {
     holes = [];
     const offsetX = (GAME_WIDTH - GRID_COLS * HOLE_SIZE) / 2;
-    const offsetY = (GAME_HEIGHT - GRID_ROWS * HOLE_SIZE) / 2 - 20; // Center vertically
+    const groundHeight = GAME_HEIGHT - GROUND_TOP;
+    const gridHeight = GRID_ROWS * HOLE_SIZE;
+    const gridTop = GROUND_TOP + (groundHeight - gridHeight) / 2;
+    const offsetY = gridTop;
 
     for (let r = 0; r < GRID_ROWS; r++) {
         for (let c = 0; c < GRID_COLS; c++) {
@@ -209,18 +213,57 @@ function handleHit(e) {
 }
 
 function createHitParticles(x, y) {
-    const colors = ['#facc15', '#fbbf24', '#f59e0b', '#92400e'];
-    for (let i = 0; i < 12; i++) {
-        const angle = (Math.PI * 2 * i) / 12;
-        const speed = 80 + Math.random() * 60;
+    const colors = ['#facc15', '#fbbf24', '#f59e0b', '#92400e', '#b45309'];
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+        const speed = 90 + Math.random() * 80;
         particles.push({
             x: x,
             y: y,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 30,
-            life: 0.4,
-            maxLife: 0.4,
-            size: 4 + Math.random() * 6,
+            vy: Math.sin(angle) * speed - 40,
+            life: 0.5,
+            maxLife: 0.5,
+            size: 5 + Math.random() * 8,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+}
+
+function createBadMoleParticles(x, y) {
+    const colors = ['#dc2626', '#b91c1c', '#7f1d1d', '#991b1b', '#450a0a'];
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+        const speed = 70 + Math.random() * 70;
+        particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 35,
+            life: 0.45,
+            maxLife: 0.45,
+            size: 4 + Math.random() * 7,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+}
+
+function createGoldenMoleParticles(x, y) {
+    const colors = ['#fef08a', '#fde047', '#facc15', '#fbbf24', '#eab308', '#fef9c3'];
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.2;
+        const speed = 100 + Math.random() * 90;
+        particles.push({
+            x: x,
+            y: y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 50,
+            life: 0.55,
+            maxLife: 0.55,
+            size: 6 + Math.random() * 9,
             color: colors[Math.floor(Math.random() * colors.length)]
         });
     }
@@ -447,119 +490,248 @@ function update(dt) {
     }
 }
 
-// ===== DRAW =====
+// ===== DRAW (layered: sky, hills, ground, grass) - fluid & animated =====
 function drawBackground() {
-    // Calculate ground position based on hole positions (with fallback)
-    const groundStartY = holes.length > 0 ? Math.max(holes[0].y - 80, 100) : GAME_HEIGHT * 0.4;
-    
-    // Improved sky gradient - more realistic sky colors
-    const skyGradient = ctx.createLinearGradient(0, 0, 0, groundStartY);
-    skyGradient.addColorStop(0, "#87CEEB");      // Light sky blue at top
-    skyGradient.addColorStop(0.3, "#B0E0E6");   // Powder blue
-    skyGradient.addColorStop(0.6, "#ADD8E6");   // Light blue
-    skyGradient.addColorStop(0.9, "#98D8C8");   // Mint green (horizon)
-    skyGradient.addColorStop(1, "#90EE90");     // Light green (near ground)
-    ctx.fillStyle = skyGradient;
-    ctx.fillRect(0, 0, GAME_WIDTH, groundStartY);
-    
-    // Add some subtle clouds for atmosphere
+    const skyTop = 0;
+    const skyBottom = Math.min(GROUND_TOP + 80, GAME_HEIGHT);
+    const t = animationTime;
+
+    // --- Layer 1: Sky gradient (subtle slow pulse) ---
+    const skyGrad = ctx.createLinearGradient(0, skyTop, 0, skyBottom);
+    skyGrad.addColorStop(0, "#4a90d9");
+    skyGrad.addColorStop(0.2 + Math.sin(t * 0.2) * 0.02, "#7eb8e8");
+    skyGrad.addColorStop(0.55 + Math.cos(t * 0.15) * 0.03, "#a8d4f0");
+    skyGrad.addColorStop(0.82 + Math.sin(t * 0.18) * 0.02, "#c5e0b0");
+    skyGrad.addColorStop(1, "#8fbc7a");
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, GAME_WIDTH, skyBottom);
+
+    // Soft moving highlight overlay (sun glow)
     ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-    // Cloud 1
+    const glowY = 60 + Math.sin(t * 0.2) * 15;
+    const glowGrad = ctx.createRadialGradient(GAME_WIDTH * 0.7, glowY, 0, GAME_WIDTH * 0.5, glowY, 280);
+    glowGrad.addColorStop(0, "rgba(255,255,255,0.06)");
+    glowGrad.addColorStop(0.6, "rgba(255,255,255,0.02)");
+    glowGrad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = glowGrad;
+    ctx.fillRect(0, 0, GAME_WIDTH, skyBottom);
+    ctx.restore();
+
+    // --- Layer 2: Distant hills (gentle parallax drift & breathe) ---
+    const hillPhase = t * 0.12;
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    const hillY = GROUND_TOP + 30;
+    ctx.fillStyle = "#5a7a4a";
     ctx.beginPath();
-    ctx.arc(150, 80, 40, 0, Math.PI * 2);
-    ctx.arc(180, 80, 50, 0, Math.PI * 2);
-    ctx.arc(210, 80, 40, 0, Math.PI * 2);
+    ctx.moveTo(0, GAME_HEIGHT);
+    ctx.lineTo(0, hillY + 80);
+    for (let x = 0; x <= GAME_WIDTH + 200; x += 100) {
+        const y = hillY + 40
+            + Math.sin(x * 0.02 + hillPhase) * 28
+            + Math.cos(x * 0.015 + hillPhase * 0.7) * 18;
+        ctx.lineTo(x, y);
+    }
+    ctx.lineTo(GAME_WIDTH + 200, GAME_HEIGHT);
+    ctx.closePath();
     ctx.fill();
-    // Cloud 2
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#4a6a3a";
     ctx.beginPath();
-    ctx.arc(600, 120, 35, 0, Math.PI * 2);
-    ctx.arc(625, 120, 45, 0, Math.PI * 2);
-    ctx.arc(650, 120, 35, 0, Math.PI * 2);
-    ctx.fill();
-    // Cloud 3
-    ctx.beginPath();
-    ctx.arc(750, 60, 30, 0, Math.PI * 2);
-    ctx.arc(770, 60, 40, 0, Math.PI * 2);
-    ctx.arc(790, 60, 30, 0, Math.PI * 2);
+    ctx.moveTo(0, GAME_HEIGHT);
+    ctx.lineTo(0, hillY + 120);
+    for (let x = 0; x <= GAME_WIDTH + 200; x += 70) {
+        const y = hillY + 70 + Math.sin(x * 0.03 + hillPhase * 1.2) * 32;
+        ctx.lineTo(x, y);
+    }
+    ctx.lineTo(GAME_WIDTH + 200, GAME_HEIGHT);
+    ctx.closePath();
     ctx.fill();
     ctx.restore();
-    
-    // Ground/dirt area with better gradient
-    const groundGradient = ctx.createLinearGradient(0, groundStartY, 0, GAME_HEIGHT);
-    groundGradient.addColorStop(0, "#8B4513");   // Saddle brown
-    groundGradient.addColorStop(0.5, "#654321"); // Dark brown
-    groundGradient.addColorStop(1, "#5C4033");   // Very dark brown
-    ctx.fillStyle = groundGradient;
-    ctx.fillRect(0, groundStartY, GAME_WIDTH, GAME_HEIGHT - groundStartY);
-    
-    // Improved grass texture with variation
-    ctx.fillStyle = "#7cb342";
+
+    // --- Layer 3: Clouds (drift across sky, loop) ---
+    ctx.save();
+    const cloudW = 220;
+    const wrap = GAME_WIDTH + cloudW * 2;
+    ctx.globalAlpha = 0.52 + Math.sin(t * 0.3) * 0.04;
+    ctx.fillStyle = "#fff";
+    [
+        { baseX: 80, baseY: 50, speed: 12, r: [35, 45, 38], spacing: 32 },
+        { baseX: 380, baseY: 88, speed: 18, r: [30, 40, 32], spacing: 32 },
+        { baseX: 680, baseY: 42, speed: 10, r: [40, 50, 42], spacing: 32 },
+        { baseX: 200, baseY: 105, speed: 15, r: [28, 38, 30], spacing: 28 },
+        { baseX: 520, baseY: 70, speed: 14, r: [32, 42, 35], spacing: 30 }
+    ].forEach(function (c, idx) {
+        const drift = (c.baseX + t * c.speed) % wrap;
+        const x = drift - cloudW;
+        const y = c.baseY + Math.sin(t * 0.4 + idx) * 6;
+        ctx.beginPath();
+        c.r.forEach(function (r, i) {
+            ctx.arc(x + i * c.spacing, y, r, 0, Math.PI * 2);
+        });
+        ctx.fill();
+    });
+    ctx.restore();
+
+    // --- Layer 4: Ground (dirt) with depth gradient ---
+    const groundGrad = ctx.createLinearGradient(0, GROUND_TOP, 0, GAME_HEIGHT);
+    groundGrad.addColorStop(0, "#6b4423");
+    groundGrad.addColorStop(0.15, "#5c3d1f");
+    groundGrad.addColorStop(0.5, "#4a3219");
+    groundGrad.addColorStop(1, "#3d2a14");
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, GROUND_TOP, GAME_WIDTH, GAME_HEIGHT - GROUND_TOP);
+
+    // --- Layer 5: Foreground grass (swaying blades) ---
+    const grassY = GROUND_TOP;
+    const sway = Math.sin(t * 1.8) * 5;
+    const sway2 = Math.sin(t * 1.4 + 1) * 4;
+    const bladeH = 14;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     for (let i = 0; i < GAME_WIDTH; i += 3) {
-        const grassHeight = 4 + Math.sin(i * 0.15) * 3 + Math.cos(i * 0.08) * 2;
-        ctx.fillRect(i, groundStartY, 2, grassHeight);
+        const phase = i * 0.08 + t * 1.2;
+        const lean = Math.sin(phase) * sway + Math.cos(phase * 0.7) * sway2;
+        const h = bladeH + Math.sin(i * 0.1 + t * 0.5) * 4 + Math.cos(i * 0.07) * 3;
+        ctx.strokeStyle = (i % 6 < 3) ? "#558b2f" : "#5a9540";
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(i, grassY);
+        ctx.lineTo(i + lean, grassY - h);
+        ctx.stroke();
     }
-    // Add some darker grass patches for texture
-    ctx.fillStyle = "#689F38";
-    for (let i = 0; i < GAME_WIDTH; i += 7) {
-        const grassHeight = 3 + Math.sin(i * 0.2) * 2;
-        ctx.fillRect(i, groundStartY, 2, grassHeight);
+    for (let i = 0; i < GAME_WIDTH; i += 5) {
+        const phase = i * 0.12 + t * 1.0;
+        const lean = Math.sin(phase) * (sway * 0.8) + Math.cos(phase * 0.6) * (sway2 * 0.8);
+        const h = bladeH * 0.75 + Math.sin(i * 0.12 + t * 0.4) * 3;
+        ctx.strokeStyle = "#7cb342";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(i + 1, grassY);
+        ctx.lineTo(i + 1 + lean, grassY - h);
+        ctx.stroke();
     }
+    for (let i = 0; i < GAME_WIDTH; i += 6) {
+        const phase = i * 0.1 + t * 1.35;
+        const lean = Math.sin(phase + 0.5) * (sway * 0.6);
+        const h = bladeH * 0.6 + Math.cos(i * 0.09 + t * 0.3) * 2;
+        ctx.strokeStyle = "#689f38";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(i + 2, grassY);
+        ctx.lineTo(i + 2 + lean, grassY - h);
+        ctx.stroke();
+    }
+    ctx.restore();
 }
 
 function drawHoles() {
+    const rx = HOLE_RADIUS;
+    const ry = HOLE_RADIUS * 0.65;
+
     holes.forEach((h, index) => {
-        const centerX = h.x + HOLE_SIZE / 2;
-        const centerY = h.y + HOLE_SIZE / 2;
-        
-        // Hole shadow (dark interior)
-        const holeGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, HOLE_RADIUS);
-        holeGradient.addColorStop(0, "#1a1a1a");
-        holeGradient.addColorStop(0.7, "#2d2d2d");
-        holeGradient.addColorStop(1, "#3d3d3d");
-        
-        // Main hole (ellipse shape)
-        ctx.fillStyle = holeGradient;
+        const cx = h.x + HOLE_SIZE / 2;
+        const cy = h.y + HOLE_SIZE / 2;
+
+        // 1) Outer rim shadow (dark ring under grass)
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
         ctx.beginPath();
-        ctx.ellipse(centerX, centerY, HOLE_RADIUS, HOLE_RADIUS * 0.6, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner shadow for depth
-        const innerGradient = ctx.createRadialGradient(centerX, centerY - 10, 0, centerX, centerY, HOLE_RADIUS * 0.7);
-        innerGradient.addColorStop(0, "rgba(0,0,0,0.6)");
-        innerGradient.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = innerGradient;
-        ctx.beginPath();
-        ctx.ellipse(centerX, centerY, HOLE_RADIUS * 0.7, HOLE_RADIUS * 0.4, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Grass around hole edge
-        ctx.fillStyle = "#7cb342";
-        for (let i = 0; i < 8; i++) {
-            const angle = (Math.PI * 2 * i) / 8;
-            const px = centerX + Math.cos(angle) * HOLE_RADIUS;
-            const py = centerY + Math.sin(angle) * HOLE_RADIUS * 0.6;
+        ctx.ellipse(cx, cy + 4, rx + 8, ry + 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill("evenodd");
+        ctx.restore();
+
+        // 2) Grass blades around rim (overlap into hole for natural look)
+        ctx.save();
+        const bladeCount = 24;
+        for (let i = 0; i < bladeCount; i++) {
+            const angle = (Math.PI * 2 * i) / bladeCount + (index * 0.1);
+            const dist = rx + (Math.sin(index * 7 + angle * 2) * 3);
+            const px = cx + Math.cos(angle) * dist;
+            const py = cy + Math.sin(angle) * (ry * (dist / rx));
+            const bladeLen = 8 + Math.sin(angle * 3) * 4;
+            ctx.strokeStyle = i % 3 === 0 ? "#689f38" : "#7cb342";
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = "round";
             ctx.beginPath();
-            ctx.arc(px, py, 2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + Math.sin(angle) * bladeLen, py - Math.cos(angle) * bladeLen);
+            ctx.stroke();
         }
+        ctx.restore();
+
+        // 3) Hole interior - deep pit gradient (top darker = depth)
+        const pitGrad = ctx.createRadialGradient(cx, cy - ry * 0.3, 0, cx, cy, rx * 1.2);
+        pitGrad.addColorStop(0, "#1a1510");
+        pitGrad.addColorStop(0.4, "#252015");
+        pitGrad.addColorStop(0.75, "#2d281a");
+        pitGrad.addColorStop(1, "#3a3525");
+        ctx.fillStyle = pitGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4) Inner top shadow (overhang)
+        const topShadow = ctx.createRadialGradient(cx, cy - ry * 0.8, 0, cx, cy + ry * 0.2, rx);
+        topShadow.addColorStop(0, "rgba(0,0,0,0.55)");
+        topShadow.addColorStop(0.6, "rgba(0,0,0,0.2)");
+        topShadow.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = topShadow;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 0.95, ry * 0.95, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 5) Rim highlight (top edge of hole)
+        ctx.strokeStyle = "#5a4a32";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(120,100,70,0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 1, rx - 1, ry - 1, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+}
+
+function drawMoleShadows() {
+    activeMoles.forEach(function (mole) {
+        const moleY = mole.holeY + mole.yOffset;
+        if (mole.yOffset > 10) return;
+        const shadowY = mole.holeY + 18;
+        const stretch = 1 + (mole.yOffset > 0 ? 0.2 : 0.4);
+        const alpha = mole.yOffset <= 0 ? 0.4 : 0.25 * (1 - mole.yOffset / 10);
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0," + alpha + ")";
+        ctx.beginPath();
+        ctx.ellipse(mole.x, shadowY, (MOLE_SIZE / 2) * 0.95 * stretch, (MOLE_SIZE / 2) * 0.25 * stretch, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     });
 }
 
 function drawHoleRims() {
-    // Draw hole rims/edges only for holes WITHOUT active moles, so moles appear in front
     holes.forEach((h, index) => {
         const hasActiveMole = activeMoles.some(mole => mole.holeIndex === index);
-        if (hasActiveMole) return; // Skip rim when mole is up - mole should be in front
-        
+        if (hasActiveMole) return;
+
         const centerX = h.x + HOLE_SIZE / 2;
         const centerY = h.y + HOLE_SIZE / 2;
-        
-        ctx.strokeStyle = "#654321";
+        const rx = HOLE_RADIUS;
+        const ry = HOLE_RADIUS * 0.65;
+
+        ctx.strokeStyle = "#4a3d28";
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(centerX, centerY, HOLE_RADIUS, HOLE_RADIUS * 0.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(90,75,50,0.6)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY - 1, rx - 2, ry - 2, 0, 0, Math.PI * 2);
         ctx.stroke();
     });
 }
@@ -573,287 +745,227 @@ function drawSingleMole(activeMole) {
     if (!activeMole) return;
 
     ctx.save();
-    
-    // Ensure full opacity for moles (no transparency)
     ctx.globalAlpha = 1.0;
-    
-    const moleY = activeMole.holeY + activeMole.yOffset; // Mole comes from below (positive yOffset = below hole center)
-    
-    // Clip to hole area only when mole is emerging or retreating (not when fully up)
-    // When yOffset is negative (mole is above ground), don't clip so the top can show
+
+    const moleY = activeMole.holeY + activeMole.yOffset;
+
     if (activeMole.yOffset > 0) {
-        // Mole is still emerging or retreating - clip to hole shape
         const holeCenterY = activeMole.holeY;
         ctx.beginPath();
         ctx.ellipse(activeMole.x, holeCenterY, HOLE_RADIUS, HOLE_RADIUS * 0.6, 0, 0, Math.PI * 2);
         ctx.clip();
     }
-    // When yOffset <= 0 (mole is fully up), no clipping so the top can peek above ground
-    
-    // Apply rotation for hit effect
+
     if (activeMole.hit) {
         ctx.translate(activeMole.x, moleY);
         ctx.rotate(Math.sin(activeMole.hitTimer * 30) * 0.2);
         ctx.translate(-activeMole.x, -moleY);
     }
-    
+
     ctx.translate(activeMole.x, moleY);
 
-    // Improved body shadow with blur effect
-    ctx.save();
-    // Create shadow with multiple layers for blur effect
+    // Ground shadow under mole (soft oval)
     for (let i = 0; i < 3; i++) {
-        const shadowAlpha = (0.4 - i * 0.1) / (i + 1);
-        const shadowSize = 1 + i * 2;
-        ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
+        const shadowAlpha = (0.35 - i * 0.08) / (i + 1);
+        const s = 2 + i * 2;
+        ctx.fillStyle = "rgba(0,0,0," + shadowAlpha + ")";
         ctx.beginPath();
-        ctx.ellipse(0, MOLE_SIZE / 2 + 8 + i, 
-                   MOLE_SIZE / 2 * 0.9 + shadowSize, 
-                   MOLE_SIZE / 2 * 0.3 + shadowSize * 0.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, MOLE_SIZE / 2 + 6 + i, (MOLE_SIZE / 2) * 0.85 + s, (MOLE_SIZE / 2) * 0.22 + s * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
     }
-    ctx.restore();
 
-    // Determine mole colors based on type
-    let bodyBaseColor, bodyDarkColor, bodyLightColor;
+    // --- Realistic mole colors (velvety fur) ---
+    let furDark, furMid, furLight, snoutColor, noseColor;
     if (activeMole.type === "bad") {
-        // Bad mole: red/purple colors
-        bodyBaseColor = "#dc2626";
-        bodyDarkColor = "#7f1d1d";
-        bodyLightColor = "#ef4444";
+        furDark = "#5c1010";
+        furMid = "#8b2020";
+        furLight = "#a82a2a";
+        snoutColor = "#6b1a1a";
+        noseColor = "#2d0a0a";
     } else if (activeMole.type === "golden") {
-        // Golden mole: bright gold/yellow colors
-        bodyBaseColor = "#fbbf24";
-        bodyDarkColor = "#d97706";
-        bodyLightColor = "#fef08a";
+        furDark = "#b8860b";
+        furMid = "#daa520";
+        furLight = "#f0d878";
+        snoutColor = "#c9a227";
+        noseColor = "#3d2a00";
     } else {
-        // Normal mole: brown colors
-        bodyBaseColor = "#d97706";
-        bodyDarkColor = "#78350f";
-        bodyLightColor = "#f59e0b";
+        furDark = "#3d2914";
+        furMid = "#5c4033";
+        furLight = "#7d6e5c";
+        snoutColor = "#4a3728";
+        noseColor = "#1a1210";
     }
-    
-    // Draw solid opaque base circle FIRST to ensure no transparency
-    ctx.globalAlpha = 1.0;
+
+    const R = MOLE_SIZE / 2;
+
+    // Body: oval head (wider than tall, mole-like barrel shape)
     ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = bodyBaseColor;
+    const bodyGrad = ctx.createRadialGradient(-10, -12, 2, 0, 2, R * 1.1);
+    bodyGrad.addColorStop(0, furLight);
+    bodyGrad.addColorStop(0.4, furMid);
+    bodyGrad.addColorStop(0.85, furDark);
+    bodyGrad.addColorStop(1, furDark);
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.arc(0, 0, MOLE_SIZE / 2, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, R * 0.95, R * 0.9, 0, 0, Math.PI * 2);
     ctx.fill();
-    
-    // Draw body gradient on top of solid base
-    const bodyGradient = ctx.createRadialGradient(-12, -18, 5, 0, 0, MOLE_SIZE / 2);
-    if (activeMole.type === "bad") {
-        bodyGradient.addColorStop(0, bodyLightColor);
-        bodyGradient.addColorStop(0.3, bodyBaseColor);
-        bodyGradient.addColorStop(0.7, "#991b1b");
-        bodyGradient.addColorStop(1, bodyDarkColor);
-    } else if (activeMole.type === "golden") {
-        bodyGradient.addColorStop(0, bodyLightColor);
-        bodyGradient.addColorStop(0.3, bodyBaseColor);
-        bodyGradient.addColorStop(0.7, "#f59e0b");
-        bodyGradient.addColorStop(1, bodyDarkColor);
-    } else {
-        bodyGradient.addColorStop(0, bodyLightColor);
-        bodyGradient.addColorStop(0.3, bodyBaseColor);
-        bodyGradient.addColorStop(0.7, "#92400e");
-        bodyGradient.addColorStop(1, bodyDarkColor);
-    }
-    
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = bodyGradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, MOLE_SIZE / 2, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Add darker side shadow for depth (using multiply blend mode for better effect)
+
+    // Side shadow (velvety depth)
     ctx.globalCompositeOperation = "multiply";
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.beginPath();
-    ctx.arc(MOLE_SIZE / 4, MOLE_SIZE / 4, MOLE_SIZE / 2.5, 0, Math.PI * 2);
+    ctx.ellipse(R * 0.35, R * 0.2, R * 0.5, R * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalCompositeOperation = "source-over";
 
-    // Improved body highlight with multiple layers (using screen blend mode for highlights)
+    // Top highlight (velvet sheen)
     ctx.globalCompositeOperation = "screen";
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.beginPath();
-    ctx.arc(-15, -20, MOLE_SIZE / 3, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Secondary highlight for more realistic lighting
     ctx.fillStyle = "rgba(255,255,255,0.2)";
     ctx.beginPath();
-    ctx.arc(-8, -12, MOLE_SIZE / 4, 0, Math.PI * 2);
+    ctx.ellipse(-R * 0.35, -R * 0.4, R * 0.4, R * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalCompositeOperation = "source-over";
 
-    // Improved nose with better shading
-    ctx.globalAlpha = 1.0;
-    const noseGradient = ctx.createRadialGradient(-1, 4, 0, 0, 5, 6);
-    noseGradient.addColorStop(0, "#333");
-    noseGradient.addColorStop(1, "#000");
-    ctx.fillStyle = noseGradient;
+    // --- Pointed snout (elongated, mole-like) ---
+    ctx.fillStyle = snoutColor;
     ctx.beginPath();
-    ctx.ellipse(0, 5, 6, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, R * 0.5, R * 0.32, R * 0.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    
-    // Nose highlight
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    const snoutGrad = ctx.createLinearGradient(0, -R * 0.2, 0, R * 0.7);
+    snoutGrad.addColorStop(0, furLight || furMid);
+    snoutGrad.addColorStop(0.6, snoutColor);
+    snoutGrad.addColorStop(1, furDark);
+    ctx.fillStyle = snoutGrad;
     ctx.beginPath();
-    ctx.ellipse(-2, 4, 2.5, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Nose nostrils
-    ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.arc(-2, 6, 1.5, 0, Math.PI * 2);
-    ctx.arc(2, 6, 1.5, 0, Math.PI * 2);
+    ctx.ellipse(0, R * 0.5, R * 0.28, R * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes - different based on mole type
-    if (activeMole.type === "bad") {
-        // Bad mole: red eyes with X marks
-        ctx.fillStyle = "#ef4444";
+    // Nose (leathery, at tip of snout)
+    const noseY = R * 0.88;
+    const noseGrad = ctx.createRadialGradient(0, noseY - 2, 0, 0, noseY, R * 0.2);
+    noseGrad.addColorStop(0, noseColor);
+    noseGrad.addColorStop(0.6, "#1a0f0a");
+    noseGrad.addColorStop(1, "#0d0806");
+    ctx.fillStyle = noseGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, noseY, R * 0.18, R * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (activeMole.type === "golden") {
+        ctx.fillStyle = "rgba(255,235,180,0.4)";
         ctx.beginPath();
-        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
-        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.ellipse(-R * 0.04, noseY - R * 0.04, R * 0.06, R * 0.05, 0, 0, Math.PI * 2);
         ctx.fill();
-        
-        // X marks in eyes
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 3;
+    }
+
+    // Nostrils (tiny)
+    ctx.fillStyle = "#0a0604";
+    ctx.beginPath();
+    ctx.ellipse(-R * 0.06, noseY + R * 0.02, R * 0.04, R * 0.03, 0, 0, Math.PI * 2);
+    ctx.ellipse(R * 0.06, noseY + R * 0.02, R * 0.04, R * 0.03, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- Eyes: tiny and dark (moles are nearly blind) ---
+    const eyeY = -R * 0.15;
+    const eyeX = R * 0.38;
+    if (activeMole.type === "bad") {
+        ctx.fillStyle = "#8b0000";
         ctx.beginPath();
-        ctx.moveTo(-22, -12);
-        ctx.lineTo(-14, -4);
-        ctx.moveTo(-14, -12);
-        ctx.lineTo(-22, -4);
-        ctx.moveTo(14, -12);
-        ctx.lineTo(22, -4);
-        ctx.moveTo(22, -12);
-        ctx.lineTo(14, -4);
+        ctx.arc(-eyeX, eyeY, R * 0.08, 0, Math.PI * 2);
+        ctx.arc(eyeX, eyeY, R * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#2d0000";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-eyeX - R * 0.06, eyeY - R * 0.06);
+        ctx.lineTo(-eyeX + R * 0.06, eyeY + R * 0.06);
+        ctx.moveTo(-eyeX + R * 0.06, eyeY - R * 0.06);
+        ctx.lineTo(-eyeX - R * 0.06, eyeY + R * 0.06);
+        ctx.moveTo(eyeX - R * 0.06, eyeY - R * 0.06);
+        ctx.lineTo(eyeX + R * 0.06, eyeY + R * 0.06);
+        ctx.moveTo(eyeX + R * 0.06, eyeY - R * 0.06);
+        ctx.lineTo(eyeX - R * 0.06, eyeY + R * 0.06);
         ctx.stroke();
     } else if (activeMole.type === "golden") {
-        // Golden mole: bright yellow/white eyes with sparkle
-        ctx.fillStyle = "#fef08a";
+        ctx.fillStyle = "#2d2500";
         ctx.beginPath();
-        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
-        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.arc(-eyeX, eyeY, R * 0.07, 0, Math.PI * 2);
+        ctx.arc(eyeX, eyeY, R * 0.07, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Eye shine (larger for golden)
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.fillStyle = "rgba(255,250,200,0.6)";
         ctx.beginPath();
-        ctx.arc(-16, -10, 4, 0, Math.PI * 2);
-        ctx.arc(20, -10, 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Pupils (smaller for cute look)
-        ctx.fillStyle = "#000";
-        ctx.beginPath();
-        ctx.arc(-18, -8, 3, 0, Math.PI * 2);
-        ctx.arc(18, -8, 3, 0, Math.PI * 2);
+        ctx.arc(-eyeX - R * 0.02, eyeY - R * 0.02, R * 0.025, 0, Math.PI * 2);
+        ctx.arc(eyeX - R * 0.02, eyeY - R * 0.02, R * 0.025, 0, Math.PI * 2);
         ctx.fill();
     } else {
-        // Normal mole: white eyes
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = "#1a1410";
         ctx.beginPath();
-        ctx.arc(-18, -8, 8, 0, Math.PI * 2);
-        ctx.arc(18, -8, 8, 0, Math.PI * 2);
+        ctx.arc(-eyeX, eyeY, R * 0.07, 0, Math.PI * 2);
+        ctx.arc(eyeX, eyeY, R * 0.07, 0, Math.PI * 2);
         ctx.fill();
-
-        // Eye shine
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.fillStyle = "rgba(80,70,60,0.5)";
         ctx.beginPath();
-        ctx.arc(-16, -10, 3, 0, Math.PI * 2);
-        ctx.arc(20, -10, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Pupils
-        ctx.fillStyle = "#000";
-        ctx.beginPath();
-        ctx.arc(-18, -8, 4, 0, Math.PI * 2);
-        ctx.arc(18, -8, 4, 0, Math.PI * 2);
+        ctx.arc(-eyeX - R * 0.02, eyeY - R * 0.02, R * 0.02, 0, Math.PI * 2);
+        ctx.arc(eyeX - R * 0.02, eyeY - R * 0.02, R * 0.02, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    // Mouth
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2;
+    // Small rounded ears (set back, often buried in fur)
+    const earY = -R * 0.5;
+    const earX = R * 0.52;
+    const earR = R * 0.2;
+    ctx.fillStyle = furDark;
     ctx.beginPath();
-    ctx.arc(0, 12, 8, 0.2, Math.PI - 0.2);
+    ctx.arc(-earX, earY, earR, 0, Math.PI * 2);
+    ctx.arc(earX, earY, earR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = furMid;
+    ctx.beginPath();
+    ctx.arc(-earX, earY, earR * 0.7, 0, Math.PI * 2);
+    ctx.arc(earX, earY, earR * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Subtle mouth line (moles have a small mouth)
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(0, R * 0.35, R * 0.12, 0.15 * Math.PI, Math.PI * 0.85);
     ctx.stroke();
 
-    // Improved ears with better shading and detail
-    ctx.globalAlpha = 1.0;
-    const earSize = 14;
-    
-    // Ear base color based on mole type
-    let earColor, earInsideColor;
-    if (activeMole.type === "bad") {
-        earColor = "#991b1b";
-        earInsideColor = "#7f1d1d";
-    } else if (activeMole.type === "golden") {
-        earColor = "#f59e0b";
-        earInsideColor = "#d97706";
-    } else {
-        earColor = "#78350f";
-        earInsideColor = "#92400e";
+    // Light fur texture (fine lines suggestion)
+    ctx.strokeStyle = furLight;
+    ctx.globalAlpha = 0.15;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 0.6 - Math.PI * 0.3;
+        const len = R * (0.3 + Math.sin(i * 1.3) * 0.15);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * R * 0.3, Math.sin(a) * R * 0.3);
+        ctx.lineTo(Math.cos(a) * (R * 0.3 + len), Math.sin(a) * (R * 0.3 + len));
+        ctx.stroke();
     }
-    
-    // Left ear with gradient
-    const leftEarGradient = ctx.createRadialGradient(-25, -20, 0, -25, -20, earSize);
-    leftEarGradient.addColorStop(0, bodyLightColor || "#f59e0b");
-    leftEarGradient.addColorStop(1, earColor);
-    ctx.fillStyle = leftEarGradient;
-    ctx.beginPath();
-    ctx.arc(-25, -20, earSize, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Right ear with gradient
-    const rightEarGradient = ctx.createRadialGradient(25, -20, 0, 25, -20, earSize);
-    rightEarGradient.addColorStop(0, bodyLightColor || "#f59e0b");
-    rightEarGradient.addColorStop(1, earColor);
-    ctx.fillStyle = rightEarGradient;
-    ctx.beginPath();
-    ctx.arc(25, -20, earSize, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Ear shadows for depth
-    ctx.fillStyle = "rgba(0,0,0,0.2)";
-    ctx.beginPath();
-    ctx.arc(-25, -18, earSize * 0.7, 0, Math.PI * 2);
-    ctx.arc(25, -18, earSize * 0.7, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Ear insides with better color
-    ctx.fillStyle = earInsideColor;
-    ctx.beginPath();
-    ctx.arc(-25, -20, earSize * 0.65, 0, Math.PI * 2);
-    ctx.arc(25, -20, earSize * 0.65, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Ear highlights
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.beginPath();
-    ctx.arc(-23, -22, 3, 0, Math.PI * 2);
-    ctx.arc(27, -22, 3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = 1.0;
 
     ctx.restore();
 }
 
 function drawParticles() {
     particles.forEach(p => {
-        const alpha = p.life / p.maxLife;
+        const t = p.life / p.maxLife;
+        const alpha = t;
+        const size = p.size * (0.3 + 0.7 * t);
+        ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = size * 0.8;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.restore();
     });
-    ctx.globalAlpha = 1;
 }
 
 function updateUI() {
@@ -948,9 +1060,8 @@ function gameLoop(timestamp) {
     
     drawBackground();
     drawHoles();
-    // Draw mole with clipping (mole will be masked by hole shape)
+    drawMoleShadows();
     drawMole();
-    // Draw hole rim/edge again on top to cover mole edges and ensure proper masking
     drawHoleRims();
     drawParticles();
     ctx.restore();

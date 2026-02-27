@@ -35,6 +35,7 @@ const WIN_SCORE = 7;
 
 // Positions
 let leftPaddleY = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+let leftPaddleYTarget = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2; // Smooth follow for touch/mouse
 let rightPaddleY = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2;
 let ballX = GAME_WIDTH / 2;
 let ballY = GAME_HEIGHT / 2;
@@ -83,25 +84,15 @@ document.addEventListener("keyup", (e) => {
 
 // === INPUT HANDLING (MOUSE + TOUCH) ===
 
-// Helper to convert screen Y to canvas Y and move paddle
+// Helper to convert screen Y to canvas Y and set paddle target (paddle lerps toward it)
 function moveLeftPaddleToClientY(clientY) {
     const rect = canvas.getBoundingClientRect();
-    
-    // Calculate scaling factors (canvas internal size vs displayed size)
-    // Use logical game dimensions for coordinate conversion
-    const scaleX = GAME_WIDTH / rect.width;
     const scaleY = GAME_HEIGHT / rect.height;
-    
-    // Convert client coordinates to canvas coordinates
     const canvasY = (clientY - rect.top) * scaleY;
-    
-    // Center paddle on pointer
-    leftPaddleY = canvasY - PADDLE_HEIGHT / 2;
-
-    // Clamp
-    if (leftPaddleY < 0) leftPaddleY = 0;
-    if (leftPaddleY + PADDLE_HEIGHT > GAME_HEIGHT) {
-        leftPaddleY = GAME_HEIGHT - PADDLE_HEIGHT;
+    leftPaddleYTarget = canvasY - PADDLE_HEIGHT / 2;
+    if (leftPaddleYTarget < 0) leftPaddleYTarget = 0;
+    if (leftPaddleYTarget + PADDLE_HEIGHT > GAME_HEIGHT) {
+        leftPaddleYTarget = GAME_HEIGHT - PADDLE_HEIGHT;
     }
 }
 
@@ -163,8 +154,10 @@ function startNewGame() {
 }
 
 function resetPositions() {
-    leftPaddleY = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-    rightPaddleY = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+    const centerY = GAME_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+    leftPaddleY = centerY;
+    leftPaddleYTarget = centerY;
+    rightPaddleY = centerY;
 }
 
 function resetBall(direction = 1) {
@@ -189,15 +182,16 @@ function resetBall(direction = 1) {
 function update() {
     if (gameState !== "playing") return;
 
-    // --- Move left paddle (Keyboard only) ---
-    // Mouse/touch already directly set leftPaddleY
-    if (wPressed) leftPaddleY -= PADDLE_SPEED;
-    if (sPressed) leftPaddleY += PADDLE_SPEED;
+    // --- Move left paddle: keyboard updates target, then lerp toward target (smooth on touch/mouse)
+    if (wPressed) leftPaddleYTarget -= PADDLE_SPEED;
+    if (sPressed) leftPaddleYTarget += PADDLE_SPEED;
+    if (leftPaddleYTarget < 0) leftPaddleYTarget = 0;
+    if (leftPaddleYTarget + PADDLE_HEIGHT > GAME_HEIGHT) leftPaddleYTarget = GAME_HEIGHT - PADDLE_HEIGHT;
 
-    // Clamp left paddle
+    const PADDLE_LERP = 0.18;
+    leftPaddleY += (leftPaddleYTarget - leftPaddleY) * PADDLE_LERP;
     if (leftPaddleY < 0) leftPaddleY = 0;
-    if (leftPaddleY + PADDLE_HEIGHT > GAME_HEIGHT)
-        leftPaddleY = GAME_HEIGHT - PADDLE_HEIGHT;
+    if (leftPaddleY + PADDLE_HEIGHT > GAME_HEIGHT) leftPaddleY = GAME_HEIGHT - PADDLE_HEIGHT;
 
     // --- Move right paddle (Smooth AI with Linear Interpolation) ---
     const rightPaddleCenter = rightPaddleY + PADDLE_HEIGHT / 2;
