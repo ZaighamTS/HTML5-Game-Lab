@@ -87,27 +87,75 @@
             top: 0;
             left: 0;
             right: 0;
-            padding: 12px 16px;
-            padding-top: max(12px, env(safe-area-inset-top));
+            padding: 14px 20px;
+            padding-top: max(14px, env(safe-area-inset-top));
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-            font-size: clamp(16px, 4vw, 24px);
-            font-weight: bold;
-            color: #fff;
+            gap: 12px;
             font-family: system-ui, -apple-system, Arial, sans-serif;
-            background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 80%, transparent 100%);
+            background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 70%, transparent 100%);
             -webkit-font-smoothing: antialiased;
         }
+        .whack-hud .hud-left,
+        .whack-hud .hud-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 0;
+        }
+        .whack-hud .hud-left { align-items: flex-start; }
+        .whack-hud .hud-right { align-items: flex-end; }
+        .whack-hud .hud-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.65);
+        }
+        .whack-hud .hud-value {
+            font-size: clamp(20px, 5vw, 28px);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.1;
+        }
+        .whack-hud .hud-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 10px 24px;
+            border-radius: 14px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        }
+        .whack-hud .hud-center .hud-label {
+            font-size: 9px;
+            margin-bottom: 2px;
+            color: rgba(255,255,255,0.6);
+        }
+        .whack-hud .hud-center .hud-value {
+            font-size: clamp(28px, 7vw, 42px);
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            color: #fff;
+        }
+        .whack-hud .hud-value.time-low { color: #f87171; }
         .whack-hud .hud-combo {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
-            top: 58px;
+            top: 72px;
+            padding: 4px 14px;
+            border-radius: 999px;
+            background: rgba(250, 204, 21, 0.2);
+            border: 1px solid rgba(250, 204, 21, 0.4);
             color: #facc15;
-            font-size: clamp(18px, 4vw, 26px);
+            font-size: clamp(14px, 3.5vw, 20px);
+            font-weight: 700;
         }
         .whack-menu-overlay,
         .whack-gameover-overlay {
@@ -163,8 +211,9 @@
         .game-container.title-card-active canvas { filter: blur(10px); opacity: 0.5; }
 
         @media (max-width: 480px) {
-            .whack-hud { padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); }
-            .whack-hud .hud-combo { top: 52px; }
+            .whack-hud { padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); }
+            .whack-hud .hud-center { padding: 8px 18px; }
+            .whack-hud .hud-combo { top: 66px; font-size: 13px; }
         }
     </style>
 </head>
@@ -177,10 +226,19 @@
         <canvas id="gameCanvas" width="900" height="600"></canvas>
         <div class="ui-overlay">
             <div class="whack-hud" id="whackHud">
-                <div class="hud-score">Score: <span id="whackScore">0</span></div>
-                <div class="hud-time">Time: <span id="whackTime">30</span></div>
-                <div class="hud-lives">Lives: <span id="whackLives">3</span></div>
-                <div class="hud-combo" id="whackCombo" style="display: none;">Combo x<span id="whackComboVal">2</span></div>
+                <div class="hud-left">
+                    <span class="hud-label">Score</span>
+                    <span class="hud-value" id="whackScore">0</span>
+                </div>
+                <div class="hud-center">
+                    <span class="hud-label">Time</span>
+                    <span class="hud-value" id="whackTime">30</span>
+                </div>
+                <div class="hud-right">
+                    <span class="hud-label">Lives</span>
+                    <span class="hud-value" id="whackLives">3</span>
+                </div>
+                <div class="hud-combo" id="whackCombo" style="display: none;">Combo ×<span id="whackComboVal">2</span></div>
             </div>
             <div class="whack-menu-overlay" id="whackMenuOverlay">
                 <h1>WHACK</h1>

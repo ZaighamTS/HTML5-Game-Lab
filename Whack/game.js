@@ -980,7 +980,7 @@ function updateUI() {
     if (scoreEl) scoreEl.textContent = score;
     if (timeEl) {
         timeEl.textContent = Math.ceil(timeLeft);
-        timeEl.style.color = timeLeft < 10 ? '#ef4444' : '';
+        timeEl.classList.toggle('time-low', timeLeft < 10);
     }
     if (livesEl) livesEl.textContent = lives;
     if (comboEl) {
