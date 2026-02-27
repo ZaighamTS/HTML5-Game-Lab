@@ -43,7 +43,8 @@ let baseDifficultyMultiplier = 1.0; // Time-based difficulty
 let comboDifficultyMultiplier = 1.0; // Combo-based difficulty
 
 let lastTime = 0;
-let gameState = "menu"; // menu | playing | gameOver
+let gameState = "menu"; // menu | countdown | playing | gameOver
+let countdownRemaining = 0; // 3-second pre-game countdown
 let gameOverTime = 0; // Timestamp when game over state started
 const GAME_OVER_DELAY = 3; // Seconds to wait before allowing restart
 let animationTime = 0; // for UI animations
@@ -287,10 +288,8 @@ function startGame() {
     gameOverTime = 0;
     baseDifficultyMultiplier = 1.0;
     comboDifficultyMultiplier = 1.0;
-    gameState = "playing";
-    // Play game start sound
-    gameStartSound.currentTime = 0;
-    gameStartSound.play();
+    countdownRemaining = 3;
+    gameState = "countdown";
 }
 
 // Calculate difficulty multipliers
@@ -364,6 +363,15 @@ function spawnMole() {
 
 // ===== UPDATE =====
 function update(dt) {
+    if (gameState === "countdown") {
+        countdownRemaining -= dt;
+        if (countdownRemaining <= 0) {
+            gameState = "playing";
+            gameStartSound.currentTime = 0;
+            gameStartSound.play();
+        }
+        return;
+    }
     if (gameState !== "playing") return;
 
     // countdown timer
@@ -989,7 +997,12 @@ function updateUI() {
     }
     if (menuOverlay) menuOverlay.style.display = gameState === "menu" ? "block" : "none";
     if (gameOverOverlay) gameOverOverlay.style.display = gameState === "gameOver" ? "block" : "none";
-    if (hud) hud.style.visibility = gameState === "playing" ? "visible" : "hidden";
+    const preCountdownEl = document.getElementById("whackPreCountdownOverlay");
+    if (preCountdownEl) {
+        preCountdownEl.style.display = gameState === "countdown" ? "block" : "none";
+        if (gameState === "countdown") preCountdownEl.textContent = Math.max(1, Math.ceil(countdownRemaining));
+    }
+    if (hud) hud.style.visibility = (gameState === "playing" || gameState === "countdown") ? "visible" : "hidden";
     if (gameState === "gameOver") {
         const titleEl = document.getElementById('whackGameOverTitle');
         const finalScoreEl = document.getElementById('whackFinalScore');
